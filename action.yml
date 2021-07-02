@@ -31,6 +31,9 @@ inputs:
     publish:
         description: ''
         required: false
+    dry-run:
+        description: ''
+        default: false
 runs:
     using: 'node12'
     main: 'dist/index.js'

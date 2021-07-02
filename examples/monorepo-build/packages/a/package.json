@@ -1,0 +1,10 @@
+{
+    "name": "deploy-build-test-monorepo-build-a",
+    "version": "1.0.0",
+    "main": "build/index.js",
+    "license": "MIT",
+    "private": false,
+    "scripts": {
+        "build": "rm -rf build && mkdir build && cp index.js build"
+    }
+}

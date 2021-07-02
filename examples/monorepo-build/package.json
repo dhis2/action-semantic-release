@@ -1,0 +1,13 @@
+{
+    "name": "deploy-build-test-monorepo-build",
+    "version": "1.0.0",
+    "workspaces": [
+        "packages/*"
+    ],
+    "private": true,
+    "scripts": {
+        "build": "yarn build:a && yarn build:b",
+        "build:a": "yarn workspace deploy-build-test-monorepo-build-a build",
+        "build:b": "yarn workspace deploy-build-test-monorepo-build-b build"
+    }
+}

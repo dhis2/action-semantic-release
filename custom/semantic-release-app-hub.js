@@ -6,23 +6,35 @@ const semver = require('semver')
 
 exports.verifyConditions = (config, context) => {
     const { pkgRoot } = config
-    const { env } = context
+    const { env, logger, cwd } = context
 
-    const packagePath = path.join(pkgRoot, 'package.json')
+    const basePath = pkgRoot ? path.resolve(cwd, pkgRoot) : cwd
+
+    logger.log('pkg root', pkgRoot)
+    logger.log('semantic-release cwd', cwd)
+    logger.log('basePath', basePath)
+
+    const packagePath = path.join(basePath, 'package.json')
+    logger.log('packagePath', packagePath)
 
     if (!fs.existsSync(packagePath)) {
         throw new SemanticReleaseError(
-            `Failed to locate package.json file, does it exist in ${pkgRoot}?`,
+            `Failed to locate package.json file, does it exist in ${path.resolve(
+                pkgRoot
+            )}?`,
             'EMISSINGPACKAGE',
             'package.json is necessary to automatically publish to the App Hub'
         )
     }
 
-    const configPath = path.join(pkgRoot, 'd2.config.js')
+    const configPath = path.join(basePath, 'd2.config.js')
+    logger.log('configPath', configPath)
 
     if (!fs.existsSync(configPath)) {
         throw new SemanticReleaseError(
-            `Failed to locate d2.config.js file, does it exist in ${pkgRoot}?`,
+            `Failed to locate d2.config.js file, does it exist in ${path.resolve(
+                pkgRoot
+            )}?`,
             'EMISSINGD2CONFIG',
             'd2.config.js is necessary to automatically publish to the App Hub'
         )
@@ -68,14 +80,15 @@ exports.verifyConditions = (config, context) => {
 
 exports.publish = async (config, context) => {
     const { pkgRoot, baseUrl, channel } = config
-    const { env, nextRelease, logger, stdout, stderr } = context
+    const { env, nextRelease, logger, stdout, stderr, cwd } = context
 
-    const cwd = pkgRoot
+    const basePath = pkgRoot ? path.resolve(cwd, pkgRoot) : cwd
+    logger.log('basePath', basePath)
 
     // make sure to read the file from disk since it will have changed
     // in a previous external step (semantic-release/npm), and if we use
     // require here we get a cached result.
-    const packagePath = path.join(cwd, 'package.json')
+    const packagePath = path.join(basePath, 'package.json')
     const pkg = fs.readJsonSync(packagePath)
 
     if (semver.lt(pkg.version, nextRelease.version)) {
@@ -89,13 +102,11 @@ exports.publish = async (config, context) => {
     const cmd = 'yarn d2-app-scripts'
     const args = [
         'publish',
-        '--cwd',
-        cwd,
         ...(channel ? ['--channel', channel] : []),
         ...(baseUrl ? ['--baseUrl', baseUrl] : []),
     ]
 
-    const result = execa(cmd, args, { cwd, env })
+    const result = execa(cmd, args, { cwd: basePath, env })
     result.stdout.pipe(stdout, { end: false })
     result.stderr.pipe(stderr, { end: false })
     await result

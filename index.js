@@ -1,14 +1,14 @@
-const path = require('path')
 const core = require('@actions/core')
 const semanticRelease = require('semantic-release')
 const { plugins } = require('./plugins/index.js')
-const getWorkspacePackages = require('./support/getWorkspacePackages.js')
 
 //const github = require('@actions/github')
 
 // setup the inputs
 const changelog = core.getInput('changelog-file')
 const cwd = core.getInput('cwd')
+const publish = core.getInput('publish')
+const dryRun = core.getInput('dry-run')
 
 const apphub = {}
 apphub.token = core.getInput('app-hub-token')
@@ -23,12 +23,7 @@ npm.token = core.getInput('npm-token')
 npm.allowSameVersion = core.getInput('npm-allow-same-version')
 
 const main = async () => {
-    const rootPackageFile = path.join(cwd, 'package.json')
-
-    const packages = [
-        rootPackageFile,
-        ...(await getWorkspacePackages(rootPackageFile)),
-    ]
+    core.info(`Use ${cwd} as current working directory`)
 
     /* rely on defaults for configuration, except for plugins as they
      * need to be custom.
@@ -36,7 +31,15 @@ const main = async () => {
      * https://github.com/semantic-release/semantic-release/blob/master/docs/usage/configuration.md
      */
     const options = {
-        plugins: plugins({ cwd, packages, apphub, github, npm, changelog }),
+        plugins: await plugins({
+            cwd,
+            apphub,
+            github,
+            npm,
+            changelog,
+            publish,
+        }),
+        dryRun,
     }
 
     const config = {
@@ -44,7 +47,11 @@ const main = async () => {
             ...process.env,
             NPM_CONFIG_ALLOW_SAME_VERSION: npm.allowSameVersion, // Ensure we still publish even though we've already updated the package versions
             APP_HUB_TOKEN: apphub.token,
+            NPM_TOKEN: npm.token,
+            GH_TOKEN: github.token,
+            GITHUB_TOKEN: github.token,
         },
+        cwd,
     }
 
     try {

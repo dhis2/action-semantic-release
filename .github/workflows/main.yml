@@ -1,14 +1,89 @@
 on: [push]
 
 env:
-    APP_HUB_TOKEN: just-a-test
+    GIT_AUTHOR_NAME: 'dhis2-bot'
+    GIT_AUTHOR_EMAIL: 'apps@dhis2.org'
+    GIT_COMMITTER_NAME: 'dhis2-bot'
+    GIT_COMMITTER_EMAIL: 'apps@dhis2.org'
 
 jobs:
-    semantic-release:
+    standard-app:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v2
+
+            - uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+
+            - run: |
+                  cd examples/app
+                  yarn install --frozen-lockfile
+                  yarn build
+
             - uses: ./
               id: semantic-release
               with:
+                  cwd: examples/app
                   publish: 'app-hub'
+                  dry-run: true
+                  github-token: ${{secrets.TEST_GITHUB_TOKEN}}
+                  app-hub-token: just-a-test
+    standard-lib:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+
+            - uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+
+            - run: |
+                  cd examples/lib
+                  yarn install --frozen-lockfile
+                  yarn build
+
+            - uses: ./
+              id: semantic-release
+              with:
+                  cwd: examples/lib
+                  publish: 'npm'
+                  dry-run: true
+                  github-token: ${{secrets.TEST_GITHUB_TOKEN}}
+                  npm-token: ${{secrets.TEST_NPM_TOKEN}}
+
+    monorepo-node:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+
+            - uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+
+            - uses: ./
+              id: semantic-release
+              with:
+                  cwd: examples/monorepo-node
+                  publish: 'npm'
+                  dry-run: true
+                  github-token: ${{secrets.TEST_GITHUB_TOKEN}}
+                  npm-token: ${{secrets.TEST_NPM_TOKEN}}
+
+    monorepo-build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+
+            - uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+
+            - uses: ./
+              id: semantic-release
+              with:
+                  cwd: examples/monorepo-build
+                  publish: 'npm'
+                  dry-run: true
+                  github-token: ${{secrets.TEST_GITHUB_TOKEN}}
+                  npm-token: ${{secrets.TEST_NPM_TOKEN}}

@@ -1,18 +1,17 @@
 const path = require('path')
 const { reporter } = require('@dhis2/cli-helpers-engine')
+const fs = require('fs-extra')
 const glob = require('glob')
 
 // Simplified from https://github.com/yarnpkg/yarn/blob/bb9741af4d1fe00adb15e4a7596c7a3472d0bda3/src/config.js#L814
-const globPackageFilePattern = pattern =>
-    glob.sync(
-        path.join(process.cwd(), pattern.replace(/\/?$/, '/package.json')),
-        {
-            ignore: pattern.replace(/\/?$/, '/node_modules/**/package.json'),
-        }
-    )
-const getWorkspacePackages = async packageFile => {
+const globPackageFilePattern = (pattern, cwd) =>
+    glob.sync(path.join(cwd, pattern.replace(/\/?$/, '/package.json')), {
+        ignore: pattern.replace(/\/?$/, '/node_modules/**/package.json'),
+    })
+
+const getWorkspacePackages = async (packageFile, cwd) => {
     try {
-        const rootPackage = require(packageFile)
+        const rootPackage = fs.readJsonSync(packageFile)
         if (rootPackage.workspaces) {
             let workspaces
             if (Array.isArray(rootPackage.workspaces)) {
@@ -30,14 +29,14 @@ const getWorkspacePackages = async packageFile => {
             return workspaces.reduce(
                 (packages, wsPattern) => [
                     ...packages,
-                    ...globPackageFilePattern(wsPattern),
+                    ...globPackageFilePattern(wsPattern, cwd),
                 ],
                 []
             )
         }
     } catch (e) {
         reporter.warn(
-            '[release::getWorkspacePackage] Failed to load root package.json',
+            `[release::getWorkspacePackage] Failed to load ${packageFile}`,
             e
         )
     }

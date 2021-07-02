@@ -1,0 +1,7 @@
+{
+    "name": "deploy-build-test-monorepo-a",
+    "version": "1.0.0",
+    "main": "index.js",
+    "license": "MIT",
+    "private": false
+}
