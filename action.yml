@@ -1,0 +1,36 @@
+name: 'dhis2: semantic-release'
+description: ''
+inputs:
+    changelog-file:
+        description: ''
+        required: false
+        default: 'CHANGELOG.md'
+    cwd:
+        description: 'Overrides the current working directory.'
+        required: false
+        default: '.'
+    app-hub-token:
+        description: ''
+        required: false
+    app-hub-baseurl:
+        description: ''
+        required: false
+    app-hub-channel:
+        description: ''
+        required: false
+    github-token:
+        description: ''
+        required: true
+    npm-token:
+        description: ''
+        required: false
+    npm-allow-same-version:
+        description: ''
+        required: false
+        default: true
+    publish:
+        description: ''
+        required: false
+runs:
+    using: 'node12'
+    main: 'dist/index.js'

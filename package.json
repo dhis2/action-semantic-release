@@ -1,0 +1,43 @@
+{
+    "name": "@dhis2/semantic-release",
+    "version": "1.18.4",
+    "description": "",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dhis2/deploy-build.git"
+    },
+    "keywords": [
+        "release",
+        "frontend"
+    ],
+    "author": "Viktor Varland",
+    "license": "BSD-3-Clause",
+    "bugs": {
+        "url": "https://github.com/dhis2/semantic-release/issues"
+    },
+    "private": false,
+    "publishConfig": {
+        "access": "public"
+    },
+    "homepage": "https://github.com/dhis2/semantic-release#readme",
+    "dependencies": {
+        "@actions/core": "^1.2.3",
+        "@actions/github": "^2.1.1",
+        "@octokit/rest": "^17.1.4",
+        "@semantic-release/changelog": "^5.0.1",
+        "@semantic-release/commit-analyzer": "^8.0.1",
+        "@semantic-release/git": "^9.0.0",
+        "@semantic-release/github": "^7.0.5",
+        "@semantic-release/npm": "^7.0.5",
+        "@semantic-release/release-notes-generator": "^9.0.1",
+        "execa": "^5.1.1",
+        "fs-extra": "^10.0.0"
+    },
+    "devDependencies": {
+        "@dhis2/cli-style": "^9.0.1",
+        "@zeit/ncc": "^0.22.3"
+    },
+    "scripts": {
+        "build": "ncc build index.js"
+    }
+}

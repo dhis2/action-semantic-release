@@ -1,0 +1,14 @@
+on: [push]
+
+env:
+    APP_HUB_TOKEN: just-a-test
+
+jobs:
+    semantic-release:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v2
+            - uses: ./
+              id: semantic-release
+              with:
+                  publish: 'app-hub'
