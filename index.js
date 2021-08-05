@@ -1,3 +1,5 @@
+require('debug').enable('semantic-release:*')
+
 const core = require('@actions/core')
 const semanticRelease = require('semantic-release')
 const { plugins } = require('./plugins/index.js')
@@ -40,8 +42,8 @@ const main = async () => {
             changelog,
             publish,
         }),
-        dryRun,
-        ci,
+        dryRun: dryRun,
+        ci: ci,
     }
 
     const config = {
