@@ -9,6 +9,7 @@ const changelog = core.getInput('changelog-file')
 const cwd = core.getInput('cwd')
 const publish = core.getInput('publish')
 const dryRun = core.getInput('dry-run')
+const ci = core.getInput('ci')
 
 const apphub = {}
 apphub.token = core.getInput('app-hub-token')
@@ -40,6 +41,7 @@ const main = async () => {
             publish,
         }),
         dryRun,
+        ci,
     }
 
     const config = {
@@ -53,9 +55,6 @@ const main = async () => {
         },
         cwd,
     }
-
-    core.info(`env:`)
-    core.info(config.env)
 
     try {
         const result = await semanticRelease(options, config)

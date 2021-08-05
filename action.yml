@@ -5,6 +5,10 @@ inputs:
         description: ''
         required: false
         default: 'CHANGELOG.md'
+    ci:
+        description: ''
+        required: false
+        default: false
     cwd:
         description: 'Overrides the current working directory.'
         required: false
@@ -33,6 +37,7 @@ inputs:
         required: false
     dry-run:
         description: ''
+        required: false
         default: false
 runs:
     using: 'node12'
