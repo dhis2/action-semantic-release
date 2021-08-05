@@ -66,11 +66,11 @@ exports.verifyConditions = (config, context) => {
         )
     }
 
-    if (!env.APP_HUB_TOKEN) {
+    if (!env.D2_APP_HUB_TOKEN) {
         throw new SemanticReleaseError(
-            "'APP_HUB_TOKEN' missing from environment",
+            "'D2_APP_HUB_TOKEN' missing from environment",
             'EMISSINGTOKEN',
-            'The APP_HUB_TOKEN must be set to the environment to publish to the App Hub'
+            'The D2_APP_HUB_TOKEN must be set to the environment to publish to the App Hub'
         )
     }
 }

@@ -49,7 +49,7 @@ const main = async () => {
         env: {
             ...process.env,
             NPM_CONFIG_ALLOW_SAME_VERSION: npm.allowSameVersion, // Ensure we still publish even though we've already updated the package versions
-            APP_HUB_TOKEN: apphub.token,
+            D2_APP_HUB_TOKEN: apphub.token,
             NPM_TOKEN: npm.token,
             GH_TOKEN: github.token,
             GITHUB_TOKEN: github.token,
