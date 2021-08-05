@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/dhis2/action-semantic-release/compare/v1.0.1...v1.1.0) (2021-08-05)
+
+
+### Features
+
+* set old-version and new-version as output ([cfa6c9a](https://github.com/dhis2/action-semantic-release/commit/cfa6c9a998f7bb91c456af6b55b7fac2b8b12b35))
+
 ## [1.0.1](https://github.com/dhis2/action-semantic-release/compare/v1.0.0...v1.0.1) (2021-08-05)
 
 
