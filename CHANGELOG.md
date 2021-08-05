@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/dhis2/action-semantic-release/compare/v1.1.1...v1.1.2) (2021-08-05)
+
+
+### Bug Fixes
+
+* trigger release ([9daa9d7](https://github.com/dhis2/action-semantic-release/commit/9daa9d7e9bbd60188a65ac4a89c4f39c586d30d1))
+
 ## [1.1.1](https://github.com/dhis2/action-semantic-release/compare/v1.1.0...v1.1.1) (2021-08-05)
 
 
