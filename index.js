@@ -72,10 +72,13 @@ const main = async () => {
                 core.info(
                     `Published ${nextRelease.type} release version ${nextRelease.version} containing ${commits.length} commits.`
                 )
+
+                core.setOutput('new-version', nextRelease.version)
             }
 
             if (lastRelease) {
                 core.info(`The last release was "${lastRelease.version}".`)
+                core.setOutput('old-version', lastRelease.version)
             }
 
             for (const release of releases) {
