@@ -1,3 +1,10 @@
+## [1.1.5](https://github.com/dhis2/action-semantic-release/compare/v1.1.4...v1.1.5) (2021-08-05)
+
+
+### Bug Fixes
+
+* use the D2_ prefixed env var ([f7e234c](https://github.com/dhis2/action-semantic-release/commit/f7e234c7bf690642e4fb6ab019d6fb8d0ec36dc8))
+
 ## [1.1.4](https://github.com/dhis2/action-semantic-release/compare/v1.1.3...v1.1.4) (2021-08-05)
 
 
