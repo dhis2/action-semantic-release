@@ -10,6 +10,11 @@ const cwd = core.getInput('cwd')
 const publish = core.getInput('publish')
 const dryRun = core.getInput('dry-run')
 
+core.info(`changelog-file: ${changelog}`)
+core.info(`cwd: ${cwd}`)
+core.info(`publish: ${publish}`)
+core.info(`dry-run: ${dryRun}`)
+
 const apphub = {}
 apphub.token = core.getInput('app-hub-token')
 apphub.baseUrl = core.getInput('app-hub-baseurl')
