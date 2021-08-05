@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/dhis2/action-semantic-release/compare/v1.1.0...v1.1.1) (2021-08-05)
+
+
+### Bug Fixes
+
+* update the repository url ([56fb201](https://github.com/dhis2/action-semantic-release/commit/56fb201d1720edf5ea7469e17f999aea28fdb7ae))
+
 # [1.1.0](https://github.com/dhis2/action-semantic-release/compare/v1.0.1...v1.1.0) (2021-08-05)
 
 
