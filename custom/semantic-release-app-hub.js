@@ -99,8 +99,9 @@ exports.publish = async (config, context) => {
         )
     }
 
-    const cmd = 'yarn d2-app-scripts'
+    const cmd = 'yarn'
     const args = [
+        'd2-app-scripts',
         'publish',
         ...(channel ? ['--channel', channel] : []),
         ...(baseUrl ? ['--baseUrl', baseUrl] : []),
