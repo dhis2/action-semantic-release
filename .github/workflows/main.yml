@@ -87,3 +87,18 @@ jobs:
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+
+    release:
+        runs-on: ubuntu-latest
+        needs: [standard-app, standard-lib, monorepo-node, monorepo-build]
+        steps:
+            - uses: actions/checkout@v2
+
+            - uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+
+            - uses: ./
+              id: semantic-release
+              with:
+                  github-token: ${{secrets.DHIS2_BOT_GITHUB_TOKEN}}
