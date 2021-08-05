@@ -1,3 +1,10 @@
+## [1.1.4](https://github.com/dhis2/action-semantic-release/compare/v1.1.3...v1.1.4) (2021-08-05)
+
+
+### Bug Fixes
+
+* pass app-scripts as arg ([1184f1d](https://github.com/dhis2/action-semantic-release/commit/1184f1db38544ea89dce2066512dfde246fed463))
+
 ## [1.1.3](https://github.com/dhis2/action-semantic-release/compare/v1.1.2...v1.1.3) (2021-08-05)
 
 
