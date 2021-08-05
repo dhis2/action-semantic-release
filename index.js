@@ -1,5 +1,3 @@
-require('debug').enable('semantic-release:*')
-
 const core = require('@actions/core')
 const semanticRelease = require('semantic-release')
 const { plugins } = require('./plugins/index.js')
@@ -10,8 +8,9 @@ const { plugins } = require('./plugins/index.js')
 const changelog = core.getInput('changelog-file')
 const cwd = core.getInput('cwd')
 const publish = core.getInput('publish')
-const dryRun = core.getInput('dry-run')
-const ci = core.getInput('ci')
+const dryRun = core.getBooleanInput('dry-run')
+const ci = core.getBooleanInput('ci')
+const debug = core.getBooleanInput('debug')
 
 const apphub = {}
 apphub.token = core.getInput('app-hub-token')
@@ -42,8 +41,8 @@ const main = async () => {
             changelog,
             publish,
         }),
-        dryRun: dryRun,
-        ci: ci,
+        dryRun,
+        ci,
     }
 
     const config = {
@@ -59,6 +58,11 @@ const main = async () => {
     }
 
     try {
+        if (debug) {
+            core.info('debug logs enabled for semantic-release')
+            require('debug').enable('semantic-release:*')
+        }
+
         const result = await semanticRelease(options, config)
 
         if (result) {
