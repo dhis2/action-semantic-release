@@ -40,8 +40,8 @@ exports.plugins = async ({ changelog, apphub, npm, github, cwd }) => {
         releaseNotesPlugin(),
         updateDepsPlugin({ packages }),
         changelogPlugin({ changelogFile: changelog }),
-        npmPlugin({ npm, packages }),
-        apphubPlugin({ apphub, packages }),
+        ...npmPlugin({ npm, packages }),
+        ...apphubPlugin({ apphub, packages }),
         gitPlugin({ packages }),
         githubPlugin({ github }),
     ]
