@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/dhis2/action-semantic-release/compare/v1.1.5...v1.2.0) (2021-08-06)
+
+
+### Features
+
+* **publish:** support multiple providers ([26bb59b](https://github.com/dhis2/action-semantic-release/commit/26bb59be0832cc29dcedfb2ffff66d03eebd05e3))
+
 ## [1.1.5](https://github.com/dhis2/action-semantic-release/compare/v1.1.4...v1.1.5) (2021-08-05)
 
 
