@@ -29,9 +29,10 @@ exports.plugins = async ({ changelog, apphub, npm, github, cwd }) => {
         ...(await getWorkspacePackages(rootPackageFile, cwd)),
     ].map(fp => path.relative(cwd, fp))
 
-    core.startGroup('Identified packages:')
     packages.map(p => core.info(p))
-    core.endGroup()
+
+    core.info('Identified packages:')
+    core.info(packages)
 
     return [
         deferReleasePlugin(),
