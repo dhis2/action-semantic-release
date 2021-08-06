@@ -91,7 +91,6 @@ jobs:
               with:
                   cwd: examples/monorepo-build
                   publish-npm: true
-                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
