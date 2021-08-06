@@ -28,7 +28,7 @@ jobs:
                   publish-apphub: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
-                  app-hub-token: just-a-test
+                  apphub-token: just-a-test
                   debug: true
 
     standard-lib:
