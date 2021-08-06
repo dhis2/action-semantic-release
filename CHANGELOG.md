@@ -1,3 +1,11 @@
+## [1.2.1](https://github.com/dhis2/action-semantic-release/compare/v1.2.0...v1.2.1) (2021-08-06)
+
+
+### Bug Fixes
+
+* add in group for packages ([f55d75a](https://github.com/dhis2/action-semantic-release/commit/f55d75afec0ab207bfb6eb1daea527714c106889))
+* **deps:** update gh deps ([6f143f0](https://github.com/dhis2/action-semantic-release/commit/6f143f0f6b64e2a5448db14e2c90eafc2ab9d811))
+
 # [1.2.0](https://github.com/dhis2/action-semantic-release/compare/v1.1.5...v1.2.0) (2021-08-06)
 
 
