@@ -26,6 +26,7 @@ jobs:
               with:
                   cwd: examples/app
                   publish-apphub: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   apphub-token: just-a-test
@@ -50,6 +51,7 @@ jobs:
               with:
                   cwd: examples/lib
                   publish-npm: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
@@ -69,6 +71,7 @@ jobs:
               with:
                   cwd: examples/monorepo-node
                   publish-npm: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
@@ -88,6 +91,7 @@ jobs:
               with:
                   cwd: examples/monorepo-build
                   publish-npm: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
@@ -107,4 +111,5 @@ jobs:
               id: semantic-release
               with:
                   github-token: ${{secrets.DHIS2_BOT_GITHUB_TOKEN}}
+                  publish-github: true
                   debug: true
