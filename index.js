@@ -78,7 +78,7 @@ const main = async () => {
 
     try {
         if (debug) {
-            core.info('debug logs enabled for semantic-release')
+            core.notice('Debug mode is enabled.')
             require('debug').enable('semantic-release:*')
         }
 
@@ -88,7 +88,7 @@ const main = async () => {
             const { lastRelease, commits, nextRelease, releases } = result
 
             if (nextRelease) {
-                core.info(
+                core.notice(
                     `Published ${nextRelease.type} release version ${nextRelease.version} containing ${commits.length} commits.`
                 )
 
