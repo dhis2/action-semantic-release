@@ -1,3 +1,3 @@
-const github = require('@semantic-release/github')
+const plugin = require('@semantic-release/github')
 
-exports.githubPlugin = () => [github]
+exports.githubPlugin = ({ github }) => (github.publish ? [plugin] : [])

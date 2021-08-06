@@ -7,22 +7,42 @@ const { plugins } = require('./plugins/index.js')
 // setup the inputs
 const changelog = core.getInput('changelog-file')
 const cwd = core.getInput('cwd')
-const publish = core.getInput('publish')
 const dryRun = core.getBooleanInput('dry-run')
 const ci = core.getBooleanInput('ci')
 const debug = core.getBooleanInput('debug')
 
 const apphub = {}
-apphub.token = core.getInput('app-hub-token')
-apphub.baseUrl = core.getInput('app-hub-baseurl')
-apphub.channel = core.getInput('app-hub-channel')
+apphub.token = core.getInput('apphub-token')
+apphub.baseUrl = core.getInput('apphub-baseurl')
+apphub.channel = core.getInput('apphub-channel')
+apphub.publish = core.getBooleanInput('publish-apphub')
+
+core.startGroup('App Hub configuration')
+core.info(`Token: ${apphub.token}`)
+core.info(`Base URL: ${apphub.baseUrl}`)
+core.info(`Channel: ${apphub.channel}`)
+core.info(`Publish: ${apphub.publish}`)
+core.endGroup()
 
 const github = {}
 github.token = core.getInput('github-token')
+github.publish = core.getBooleanInput('publish-github')
+
+core.startGroup('GitHub configuration')
+core.info(`Token: ${github.token}`)
+core.info(`Publish: ${github.publish}`)
+core.endGroup()
 
 const npm = {}
 npm.token = core.getInput('npm-token')
-npm.allowSameVersion = core.getInput('npm-allow-same-version')
+npm.allowSameVersion = core.getBooleanInput('npm-allow-same-version')
+npm.publish = core.getBooleanInput('publish-npm')
+
+core.startGroup('NPM configuration')
+core.info(`Token: ${npm.token}`)
+core.info(`Allow Same Version: ${npm.allowSameVersion}`)
+core.info(`Publish: ${npm.publish}`)
+core.endGroup()
 
 const main = async () => {
     core.info(`Use ${cwd} as current working directory`)
@@ -39,7 +59,6 @@ const main = async () => {
             github,
             npm,
             changelog,
-            publish,
         }),
         dryRun,
         ci,
