@@ -29,6 +29,7 @@ jobs:
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   app-hub-token: just-a-test
+                  debug: true
 
     standard-lib:
         runs-on: ubuntu-latest
@@ -52,6 +53,7 @@ jobs:
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+                  debug: true
 
     monorepo-node:
         runs-on: ubuntu-latest
@@ -70,6 +72,7 @@ jobs:
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+                  debug: true
 
     monorepo-build:
         runs-on: ubuntu-latest
@@ -88,6 +91,7 @@ jobs:
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+                  debug: true
 
     release:
         runs-on: ubuntu-latest
