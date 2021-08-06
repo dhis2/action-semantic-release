@@ -1,46 +1,55 @@
 name: 'dhis2: semantic-release'
 description: ''
 inputs:
+    apphub-token:
+        description: 'App Hub access token'
+        required: false
+    apphub-baseurl:
+        description: 'Set the App Hub base URL'
+        required: false
+    apphub-channel:
+        description: 'Publish to a specific release channel'
+        required: false
     changelog-file:
-        description: ''
+        description: 'Relative path to the changelog file'
         required: false
         default: 'CHANGELOG.md'
     ci:
-        description: ''
+        description: 'Enable/disable CI environment verification'
         required: false
         default: true
     cwd:
-        description: 'Overrides the current working directory.'
+        description: 'Set the current working directory'
         required: false
         default: '.'
-    app-hub-token:
-        description: ''
-        required: false
-    app-hub-baseurl:
-        description: ''
-        required: false
-    app-hub-channel:
-        description: ''
-        required: false
-    github-token:
-        description: ''
-        required: true
-    npm-token:
-        description: ''
-        required: false
-    npm-allow-same-version:
-        description: ''
-        required: false
-        default: true
-    publish:
-        description: ''
-        required: false
-    dry-run:
-        description: ''
+    debug:
+        description: 'Verbose logs'
         required: false
         default: false
-    debug:
-        description: ''
+    dry-run:
+        description: 'Enable/disable dry run mode'
+        required: false
+        default: false
+    github-token:
+        description: 'GitHub access token'
+        required: true
+    npm-token:
+        description: 'NPM access token'
+        required: false
+    npm-allow-same-version:
+        description: 'Prevent error when setting new version to same as current version'
+        required: false
+        default: true
+    publish-npm:
+        description: 'Publish release to NPM'
+        required: false
+        default: false
+    publish-github:
+        description: 'Publish release to GitHub'
+        required: false
+        default: false
+    publish-apphub:
+        description: 'Publish release to DHIS2 App Hub'
         required: false
         default: false
 

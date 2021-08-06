@@ -25,10 +25,12 @@ jobs:
               id: semantic-release
               with:
                   cwd: examples/app
-                  publish: 'app-hub'
+                  publish-apphub: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
-                  app-hub-token: just-a-test
+                  apphub-token: just-a-test
+                  debug: true
 
     standard-lib:
         runs-on: ubuntu-latest
@@ -48,10 +50,12 @@ jobs:
               id: semantic-release
               with:
                   cwd: examples/lib
-                  publish: 'npm'
+                  publish-npm: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+                  debug: true
 
     monorepo-node:
         runs-on: ubuntu-latest
@@ -66,10 +70,12 @@ jobs:
               id: semantic-release
               with:
                   cwd: examples/monorepo-node
-                  publish: 'npm'
+                  publish-npm: true
+                  publish-github: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+                  debug: true
 
     monorepo-build:
         runs-on: ubuntu-latest
@@ -84,10 +90,11 @@ jobs:
               id: semantic-release
               with:
                   cwd: examples/monorepo-build
-                  publish: 'npm'
+                  publish-npm: true
                   dry-run: true
                   github-token: ${{secrets.TEST_GITHUB_TOKEN}}
                   npm-token: ${{secrets.TEST_NPM_TOKEN}}
+                  debug: true
 
     release:
         runs-on: ubuntu-latest
@@ -103,4 +110,5 @@ jobs:
               id: semantic-release
               with:
                   github-token: ${{secrets.DHIS2_BOT_GITHUB_TOKEN}}
+                  publish-github: true
                   debug: true
