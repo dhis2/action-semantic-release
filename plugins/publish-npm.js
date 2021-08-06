@@ -1,13 +1,23 @@
 const path = require('path')
-const plugin = require('@semantic-release/npm')
+const npm = require('@semantic-release/npm')
 
 const basedir = fp => path.dirname(fp)
 
-exports.npmPlugin = ({ npm, packages }) =>
+/*
+ * returns an array containing plugin arrays for each package, so needs
+ * to be spread on the receiving side into the semantic-release plugins
+ * array:
+ *
+ * [
+ *  [ plugin, opts ],
+ * ]
+ *
+ */
+exports.npmPlugin = ({ npmPublish, packages }) =>
     packages.map(pkgJsonPath => [
-        plugin,
+        npm,
         {
             pkgRoot: basedir(pkgJsonPath),
-            npmPublish: npm.publish,
+            npmPublish,
         },
     ])

@@ -40,9 +40,15 @@ exports.plugins = async ({ changelog, apphub, npm, github, cwd }) => {
         releaseNotesPlugin(),
         updateDepsPlugin({ packages }),
         changelogPlugin({ changelogFile: changelog }),
-        ...npmPlugin({ npm, packages }),
-        ...apphubPlugin({ apphub, packages }),
+        ...npmPlugin({ npmPublish: npm.publish, packages }),
+        ...(apphub.publish
+            ? apphubPlugin({
+                  channel: apphub.channel,
+                  baseUrl: apphub.baseUrl,
+                  packages,
+              })
+            : []),
         gitPlugin({ packages }),
-        githubPlugin({ github }),
+        ...(github.publish ? [githubPlugin()] : []),
     ]
 }

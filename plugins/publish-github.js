@@ -1,3 +1,7 @@
-const plugin = require('@semantic-release/github')
+const github = require('@semantic-release/github')
 
-exports.githubPlugin = ({ github }) => (github.publish ? [plugin] : [])
+/*
+ * to ensure that the semantic-release plugin is bundled into the dist
+ * artifact ncc produces, we need to require it and reference it in code.
+ */
+exports.githubPlugin = () => [github]

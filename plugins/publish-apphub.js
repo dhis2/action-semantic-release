@@ -1,14 +1,24 @@
 const path = require('path')
-const plugin = require('../custom/semantic-release-apphub.js')
+const apphub = require('../custom/semantic-release-apphub.js')
 
 const basedir = fp => path.dirname(fp)
 
-exports.apphubPlugin = ({ apphub, packages }) =>
+/*
+ * returns an array containing plugin arrays for each package, so needs
+ * to be spread on the receiving side into the semantic-release plugins
+ * array:
+ *
+ * [
+ *  [ plugin, opts ],
+ * ]
+ *
+ */
+exports.apphubPlugin = ({ baseUrl, channel, packages }) =>
     packages.map(pkgJsonPath => [
-        plugin,
+        apphub,
         {
             pkgRoot: basedir(pkgJsonPath),
-            baseUrl: apphub.baseUrl,
-            channel: apphub.channel,
+            baseUrl,
+            channel,
         },
     ])
