@@ -91,6 +91,9 @@ exports.publish = async (config, context) => {
     const packagePath = path.join(basePath, 'package.json')
     const pkg = fs.readJsonSync(packagePath)
 
+    const configPath = path.join(basePath, 'd2.config.js')
+    const d2Config = require(configPath)
+
     if (semver.lt(pkg.version, nextRelease.version)) {
         throw new SemanticReleaseError(
             `Wrong version detected in ${packagePath}, expected ${nextRelease.version} but got ${pkg.version}.`,
@@ -113,6 +116,12 @@ exports.publish = async (config, context) => {
     await result
 
     logger.info(result)
+
+    return {
+        name: 'AppHub release',
+        url: new URL(`app/${d2Config.id}`, baseUrl).href,
+        channel,
+    }
 }
 
 exports.success = (config, context) => {
