@@ -7,9 +7,11 @@ inputs:
     apphub-baseurl:
         description: 'Set the App Hub base URL'
         required: false
+        default: 'https://apps.dhis2.org'
     apphub-channel:
         description: 'Publish to a specific release channel'
         required: false
+        default: 'stable'
     changelog-file:
         description: 'Relative path to the changelog file'
         required: false
