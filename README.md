@@ -33,12 +33,12 @@ process:
       github-token: ${{ env.GH_TOKEN }}
 ```
 
-> :information_source: It is possible to lock the action version by
-> referencing a tag in the `uses` statement, e.g.:
-> `dhis2/action-semantic-release@1.2.1`.
+It is possible to lock the action version by referencing a tag in the
+`uses` statement, e.g.: `dhis2/action-semantic-release@1.2.1`.
 
 We use `GH_TOKEN` and not `GITHUB_TOKEN` to distinguish between the user
-who pushed (`GITHUB_TOKEN`) and the PAT of our bot account (`GH_TOKEN`).
+who pushed (`GITHUB_TOKEN`) and the PAT of the account (`GH_TOKEN`) that
+we want to trigger the release.
 
 # Options
 
