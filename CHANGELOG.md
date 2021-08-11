@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/dhis2/action-semantic-release/compare/v1.2.1...v1.2.2) (2021-08-11)
+
+
+### Bug Fixes
+
+* **apphub:** better note in the PR comment ([98a8b3a](https://github.com/dhis2/action-semantic-release/commit/98a8b3a0d7fe825d6545a9cf0a280cfdb85fac70))
+
 ## [1.2.1](https://github.com/dhis2/action-semantic-release/compare/v1.2.0...v1.2.1) (2021-08-06)
 
 
