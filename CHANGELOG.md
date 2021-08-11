@@ -1,3 +1,10 @@
+## [1.2.3](https://github.com/dhis2/action-semantic-release/compare/v1.2.2...v1.2.3) (2021-08-11)
+
+
+### Bug Fixes
+
+* add defaults for channel and apphub-baseurl ([b9c3940](https://github.com/dhis2/action-semantic-release/commit/b9c39404dfdd680b44f2da8815c86bb074d927c9))
+
 ## [1.2.2](https://github.com/dhis2/action-semantic-release/compare/v1.2.1...v1.2.2) (2021-08-11)
 
 
