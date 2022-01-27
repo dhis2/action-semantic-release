@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/dhis2/action-semantic-release/compare/v1.2.3...v1.3.0) (2022-01-27)
+
+
+### Features
+
+* **assets:** publish the app bundle in github release ([fc9b574](https://github.com/dhis2/action-semantic-release/commit/fc9b5748e9dd6f67e4f23e0f668d953528e8e5e7))
+
 ## [1.2.3](https://github.com/dhis2/action-semantic-release/compare/v1.2.2...v1.2.3) (2021-08-11)
 
 
