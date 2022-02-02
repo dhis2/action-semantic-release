@@ -10,7 +10,7 @@ exports.githubPlugin = () => [
         assets: [
             {
                 path: 'build/bundle/*.zip',
-                label: 'DHIS2 compatible application archive',
+                label: 'DHIS2 app bundle',
             },
         ],
     },

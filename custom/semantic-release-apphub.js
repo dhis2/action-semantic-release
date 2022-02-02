@@ -102,6 +102,17 @@ exports.publish = async (config, context) => {
         )
     }
 
+    try {
+        await fs.emptyDir('build/bundle')
+        logger.info(
+            'build/bundle was cleared before repacking bundle and publish.'
+        )
+    } catch (err) {
+        logger.warn(
+            'Failed to clear the build/bundle directory before publish.'
+        )
+    }
+
     const cmd = 'yarn'
     const args = [
         'd2-app-scripts',
