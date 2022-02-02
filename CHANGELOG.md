@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/dhis2/action-semantic-release/compare/v1.3.0...v1.3.1) (2022-02-02)
+
+
+### Bug Fixes
+
+* avoid publishing two bundles ([d5597a1](https://github.com/dhis2/action-semantic-release/commit/d5597a1f8c6ad50e3809021c4dff549e759c32b8))
+
 # [1.3.0](https://github.com/dhis2/action-semantic-release/compare/v1.2.3...v1.3.0) (2022-01-27)
 
 
