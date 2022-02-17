@@ -14,14 +14,10 @@ exports.gitPlugin = ({ packages }) => [
             'API.md',
             packages,
             packages
-                .map(pkgJsonPath =>
-                    path.join(path.dirname(pkgJsonPath), 'API.md')
-                )
-                .filter(fs.existsSync),
-            packages
-                .map(pkgJsonPath =>
-                    path.join(path.dirname(pkgJsonPath), 'yarn.lock')
-                )
+                .flatMap(pkgJsonPath => [
+                    path.join(path.dirname(pkgJsonPath), 'API.md'),
+                    path.join(path.dirname(pkgJsonPath), 'yarn.lock'),
+                ])
                 .filter(fs.existsSync),
         ],
         message:
