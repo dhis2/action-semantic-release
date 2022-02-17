@@ -45,3 +45,12 @@ we want to trigger the release.
 See the [`action.yml`](action.yml) file for an overview of the
 configuration possibilities. In DHIS2 scenarios, the defaults should be
 sane.
+
+# Assets
+
+Some assets are committed with the release commit:
+
+-   `./API.md` and `**/API.md`
+-   `./yarn.lock` and `**/yarn.lock`
+-   `package.json` and `**/package.json`
+-   `.CHANGELOG.md`
