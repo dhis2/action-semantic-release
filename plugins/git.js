@@ -11,7 +11,13 @@ exports.gitPlugin = ({ packages }) => [
     {
         assets: [
             'CHANGELOG.md',
+            'API.md',
             packages,
+            packages
+                .map(pkgJsonPath =>
+                    path.join(path.dirname(pkgJsonPath), 'API.md')
+                )
+                .filter(fs.existsSync),
             packages
                 .map(pkgJsonPath =>
                     path.join(path.dirname(pkgJsonPath), 'yarn.lock')
