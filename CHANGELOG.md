@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/dhis2/action-semantic-release/compare/v1.3.1...v1.4.0) (2022-02-17)
+
+
+### Features
+
+* allow api assets ([a5c7b3a](https://github.com/dhis2/action-semantic-release/commit/a5c7b3a6d7929623f7d8cb292b21efab1d888313))
+
 ## [1.3.1](https://github.com/dhis2/action-semantic-release/compare/v1.3.0...v1.3.1) (2022-02-02)
 
 
