@@ -1,3 +1,15 @@
+# [1.5.0](https://github.com/dhis2/action-semantic-release/compare/v1.4.1...v1.5.0) (2022-02-17)
+
+
+### Bug Fixes
+
+* include API assets for each package ([be2cb58](https://github.com/dhis2/action-semantic-release/commit/be2cb581868d7567a35489173fdafbee1f2e312e))
+
+
+### Features
+
+* publish api docs if they exist ([0638d6a](https://github.com/dhis2/action-semantic-release/commit/0638d6a0d646021c12c23b2498652f20fb1add8b))
+
 ## [1.4.1](https://github.com/dhis2/action-semantic-release/compare/v1.4.0...v1.4.1) (2022-02-17)
 
 
