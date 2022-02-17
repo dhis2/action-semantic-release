@@ -47,7 +47,7 @@ exports.plugins = async ({ changelog, apphub, npm, github, cwd }) => {
                   packages,
               })
             : []),
-        gitPlugin({ packages }),
+        gitPlugin(),
         ...(github.publish ? [githubPlugin()] : []),
     ]
 }
