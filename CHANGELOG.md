@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/dhis2/action-semantic-release/compare/v1.5.0...v1.5.1) (2022-03-16)
+
+
+### Bug Fixes
+
+* run CI on the release commit, but skip the release ([ac869b4](https://github.com/dhis2/action-semantic-release/commit/ac869b4b390f4d1f2962d5228182cefb426f13ff))
+
 # [1.5.0](https://github.com/dhis2/action-semantic-release/compare/v1.4.1...v1.5.0) (2022-02-17)
 
 
