@@ -50,7 +50,7 @@ sane.
 
 Some assets are committed with the release commit:
 
--   `./API.md` and `**/API.md`
--   `./yarn.lock` and `**/yarn.lock`
+-   `API.md` and `**/API.md`
+-   `yarn.lock` and `**/yarn.lock`
 -   `package.json` and `**/package.json`
--   `.CHANGELOG.md`
+-   `CHANGELOG.md`
