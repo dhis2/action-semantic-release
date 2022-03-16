@@ -21,6 +21,6 @@ exports.gitPlugin = ({ packages }) => [
                 .filter(fs.existsSync),
         ],
         message:
-            'chore(release): cut ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
+            'chore(release): cut ${nextRelease.version} [skip release]\n\n${nextRelease.notes}',
     },
 ]
