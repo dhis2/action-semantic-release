@@ -1,3 +1,10 @@
+## [1.5.2](https://github.com/dhis2/action-semantic-release/compare/v1.5.1...v1.5.2) (2022-03-16)
+
+
+### Bug Fixes
+
+* compile bundle ([e0b6235](https://github.com/dhis2/action-semantic-release/commit/e0b6235843860d36d5699a665e99c133632e594c))
+
 ## [1.5.1](https://github.com/dhis2/action-semantic-release/compare/v1.5.0...v1.5.1) (2022-03-16)
 
 
