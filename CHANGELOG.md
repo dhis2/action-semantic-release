@@ -1,3 +1,10 @@
+## [1.5.3](https://github.com/dhis2/action-semantic-release/compare/v1.5.2...v1.5.3) (2022-03-21)
+
+
+### Bug Fixes
+
+* avoid exception when no commits ([9e3b951](https://github.com/dhis2/action-semantic-release/commit/9e3b95192e27bfb9d9885270f754ddff195d6b16))
+
 ## [1.5.2](https://github.com/dhis2/action-semantic-release/compare/v1.5.1...v1.5.2) (2022-03-16)
 
 
