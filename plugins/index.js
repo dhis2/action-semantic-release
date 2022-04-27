@@ -4,7 +4,6 @@ const fs = require('fs-extra')
 const getWorkspacePackages = require('../support/getWorkspacePackages.js')
 const { changelogPlugin } = require('./changelog.js')
 const { commitAnalyzerPlugin } = require('./commit-analyzer.js')
-const { deferReleasePlugin } = require('./defer-release.js')
 const { gitPlugin } = require('./git.js')
 const { apphubPlugin } = require('./publish-apphub.js')
 const { githubPlugin } = require('./publish-github.js')
@@ -34,7 +33,6 @@ exports.plugins = async ({ changelog, apphub, npm, github, cwd }) => {
     core.endGroup()
 
     return [
-        deferReleasePlugin(),
         commitAnalyzerPlugin(),
         releaseNotesPlugin(),
         updateDepsPlugin({ packages }),

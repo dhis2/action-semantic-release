@@ -15,7 +15,6 @@ In addition to the ready-made **semantic-release** plugins:
 
 We have a few custom plugins that we use:
 
--   [defer-release](custom/semantic-release-defer-release.js)
 -   [update-deps](custom/semantic-release-update-deps.js)
 -   [apphub](custom/semantic-release-apphub.js)
 
