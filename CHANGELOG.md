@@ -1,3 +1,10 @@
+## [1.5.5](https://github.com/dhis2/action-semantic-release/compare/v1.5.4...v1.5.5) (2022-04-28)
+
+
+### Bug Fixes
+
+* build action ([f4561f6](https://github.com/dhis2/action-semantic-release/commit/f4561f68e884c26a257d1f72449d7be082b2e1aa))
+
 ## [1.5.4](https://github.com/dhis2/action-semantic-release/compare/v1.5.3...v1.5.4) (2022-04-28)
 
 
