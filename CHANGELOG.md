@@ -1,3 +1,10 @@
+## [1.5.4](https://github.com/dhis2/action-semantic-release/compare/v1.5.3...v1.5.4) (2022-04-28)
+
+
+### Bug Fixes
+
+* check if there are commits besides just commits being defined ([bbcad5b](https://github.com/dhis2/action-semantic-release/commit/bbcad5b8bd452ee030436b52319bfb215c5b60ef))
+
 ## [1.5.3](https://github.com/dhis2/action-semantic-release/compare/v1.5.2...v1.5.3) (2022-03-21)
 
 
