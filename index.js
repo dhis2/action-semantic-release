@@ -64,6 +64,8 @@ const main = async () => {
         ci,
     }
 
+    
+
     const config = {
         env: {
             ...process.env,
@@ -75,6 +77,9 @@ const main = async () => {
         },
         cwd,
     }
+
+    core.info(`options for semantic-release: ${options}`)
+    core.info(`config for semantic-release: ${config}`)
 
     try {
         if (debug) {
