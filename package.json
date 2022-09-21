@@ -36,7 +36,7 @@
     },
     "devDependencies": {
         "@dhis2/cli-style": "^9.0.1",
-        "@zeit/ncc": "^0.22.3"
+        "@vercel/ncc": "^0.34.0"
     },
     "scripts": {
         "build": "ncc build index.js"
