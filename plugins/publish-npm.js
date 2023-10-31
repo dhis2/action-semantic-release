@@ -1,5 +1,5 @@
 const path = require('path')
-const npm = require('@semantic-release/npm')
+const npm = require('@joakim_sm/semantic-release-npm')
 
 const basedir = fp => path.dirname(fp)
 
