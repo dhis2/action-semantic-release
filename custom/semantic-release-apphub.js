@@ -43,11 +43,8 @@ exports.verifyConditions = (config, context) => {
     const d2Config = require(configPath)
 
     if (d2Config.type === 'lib') {
-        throw new SemanticReleaseError(
-            'App Hub does not support publishing libraries.',
-            'EAPPHUBSUPPORT',
-            "The type in d2.config.js must not be 'lib'"
-        )
+        logger.log('App Hub publish will be skipped for library', pkgRoot)
+        return
     }
 
     if (!d2Config.id) {
@@ -93,6 +90,11 @@ exports.publish = async (config, context) => {
 
     const configPath = path.join(basePath, 'd2.config.js')
     const d2Config = require(configPath)
+
+    if (d2Config.type === 'lib') {
+        logger.log('App Hub publish skipped for library', pkgRoot)
+        return
+    }
 
     if (semver.lt(pkg.version, nextRelease.version)) {
         throw new SemanticReleaseError(

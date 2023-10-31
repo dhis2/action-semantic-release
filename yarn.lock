@@ -325,6 +325,25 @@
     minimatch "^3.0.4"
     strip-json-comments "^3.1.1"
 
+"@joakim_sm/semantic-release-npm@^1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@joakim_sm/semantic-release-npm/-/semantic-release-npm-1.0.1.tgz#3c264c54ed14ca0631b3976a519c80cbdfb463c4"
+  integrity sha512-RfYQrzHhVoRWvL6QLdyUkEIgAyKkJlJXl7YCrd/SHTy2+0PQ0NcH/eS7HeU1INNA9JmzOI2oGJThpKsp1W8l2g==
+  dependencies:
+    "@semantic-release/error" "^2.2.0"
+    aggregate-error "^3.0.0"
+    execa "^5.0.0"
+    fs-extra "^10.0.0"
+    lodash "^4.17.15"
+    nerf-dart "^1.0.0"
+    normalize-url "^6.0.0"
+    npm "^7.0.0"
+    rc "^1.2.8"
+    read-pkg "^5.0.0"
+    registry-auth-token "^4.0.0"
+    semver "^7.1.2"
+    tempy "^1.0.0"
+
 "@ls-lint/ls-lint@^1.9.2":
   version "1.9.2"
   resolved "https://registry.yarnpkg.com/@ls-lint/ls-lint/-/ls-lint-1.9.2.tgz#689f1f4c06072823a726802ba167340efcefe19c"
@@ -695,7 +714,7 @@
     p-retry "^4.0.0"
     url-join "^4.0.0"
 
-"@semantic-release/npm@^7.0.0", "@semantic-release/npm@^7.0.5":
+"@semantic-release/npm@^7.0.0":
   version "7.1.3"
   resolved "https://registry.yarnpkg.com/@semantic-release/npm/-/npm-7.1.3.tgz#1d64c41ff31b100299029c766ecc4d1f03aa5f5b"
   integrity sha512-x52kQ/jR09WjuWdaTEHgQCvZYMOTx68WnS+TZ4fya5ZAJw4oRtJETtrvUw10FdfM28d/keInQdc66R1Gw5+OEQ==
