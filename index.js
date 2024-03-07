@@ -62,6 +62,9 @@ const main = async () => {
         }),
         dryRun,
         ci,
+        // this adds "main" branch to the default branches from the version of semantic-release that we use
+        // default list is here: https://github.com/semantic-release/semantic-release/blob/v17.4.4/docs/usage/configuration.md#branches
+        branches: ['+([0-9])?(.{+([0-9]),x}).x', 'master', 'main', 'next', 'next-major', {name: 'beta', prerelease: true}, {name: 'alpha', prerelease: true}]
     }
 
     const config = {
