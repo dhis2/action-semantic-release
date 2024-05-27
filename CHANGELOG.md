@@ -1,3 +1,11 @@
+## [1.5.6](https://github.com/dhis2/action-semantic-release/compare/v1.5.5...v1.5.6) (2024-05-27)
+
+
+### Bug Fixes
+
+* ignore libs for apphub publish ([744989e](https://github.com/dhis2/action-semantic-release/commit/744989edf2c498783a9a658b3f41bb50edd62bda))
+* ignore libs for apphub publish ([5618c52](https://github.com/dhis2/action-semantic-release/commit/5618c523e6cbeb17734fde59f90ca4827beb8c9a))
+
 ## [1.5.5](https://github.com/dhis2/action-semantic-release/compare/v1.5.4...v1.5.5) (2022-04-28)
 
 
