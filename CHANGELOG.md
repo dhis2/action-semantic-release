@@ -1,3 +1,10 @@
+## [1.5.7](https://github.com/dhis2/action-semantic-release/compare/v1.5.6...v1.5.7) (2024-07-31)
+
+
+### Bug Fixes
+
+* update semantic-release to allow publish from main branch ([9ff0578](https://github.com/dhis2/action-semantic-release/commit/9ff05781903e80b50d66ab02dc4290f2e0a56b44))
+
 ## [1.5.6](https://github.com/dhis2/action-semantic-release/compare/v1.5.5...v1.5.6) (2024-05-27)
 
 
