@@ -1,6 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const AggregateError = require('aggregate-error')
+const execa = require('execa')
 const normalizeAndValidatePackages = require('../support/normalizeAndValidatePackages.js')
 
 const verifyConditions = (config = {}, context) => {
@@ -41,7 +42,7 @@ const replaceDependencies = ({ pkg, listNames, packageNames, version }) => {
     return dependencies
 }
 
-const prepare = (config, context) => {
+const prepare = async (config, context) => {
     if (!context.packages) {
         verifyConditions(config, context)
     }
@@ -86,6 +87,24 @@ const prepare = (config, context) => {
             JSON.stringify(pkgJson, undefined, tabSpaces) + '\n'
         )
     })
+
+    logger.info('Running yarn install after updating packages')
+
+    const cmd = 'yarn'
+    const args = ['install']
+
+    const { pkgRoot, baseUrl, channel } = config
+    const { env, stdout, stderr, cwd } = context
+
+    const basePath = pkgRoot ? path.resolve(cwd, pkgRoot) : cwd
+    logger.log('basePath', basePath)
+
+    const result = execa(cmd, args, { cwd: basePath, env })
+    result.stdout.pipe(stdout, { end: false })
+    result.stderr.pipe(stderr, { end: false })
+    await result
+
+    logger.info(result)
 }
 
 module.exports = { verifyConditions, prepare }
