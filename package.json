@@ -35,7 +35,7 @@
         "semantic-release": "^17.4.4"
     },
     "devDependencies": {
-        "@dhis2/cli-style": "^9.0.1",
+        "@dhis2/cli-style": "^10.7.6",
         "@zeit/ncc": "^0.22.3"
     },
     "scripts": {
