@@ -31,10 +31,15 @@ exports.verifyConditions = (config, context) => {
     logger.log('configPath', configPath)
 
     if (!fs.existsSync(configPath)) {
-        logger.warn(`Failed to locate d2.config.js file, does it exist in ${path.resolve(
+        logger.warn(
+            `Failed to locate d2.config.js file, does it exist in ${path.resolve(
                 pkgRoot
-        )}?`)
-        logger.warn('d2.config.js is necessary to automatically publish to the App Hub. Skipping', pkgRoot)
+            )}?`
+        )
+        logger.warn(
+            'd2.config.js is necessary to automatically publish to the App Hub. Skipping',
+            pkgRoot
+        )
         return
     }
 
