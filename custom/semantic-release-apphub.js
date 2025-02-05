@@ -31,13 +31,11 @@ exports.verifyConditions = (config, context) => {
     logger.log('configPath', configPath)
 
     if (!fs.existsSync(configPath)) {
-        throw new SemanticReleaseError(
-            `Failed to locate d2.config.js file, does it exist in ${path.resolve(
+        logger.warn(`Failed to locate d2.config.js file, does it exist in ${path.resolve(
                 pkgRoot
-            )}?`,
-            'EMISSINGD2CONFIG',
-            'd2.config.js is necessary to automatically publish to the App Hub'
-        )
+        )}?`)
+        logger.warn('d2.config.js is necessary to automatically publish to the App Hub. Skipping', pkgRoot)
+        return
     }
 
     const d2Config = require(configPath)
