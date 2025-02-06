@@ -1,3 +1,10 @@
+## [1.5.8](https://github.com/dhis2/action-semantic-release/compare/v1.5.7...v1.5.8) (2025-02-06)
+
+
+### Bug Fixes
+
+* **publish-apphub:** don't crash if a package doesn't have d2.config.js ([cb48017](https://github.com/dhis2/action-semantic-release/commit/cb48017cb1677fa608b85818dbd9088a0caece39))
+
 ## [1.5.7](https://github.com/dhis2/action-semantic-release/compare/v1.5.6...v1.5.7) (2024-07-31)
 
 
