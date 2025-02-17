@@ -11037,6 +11037,28 @@ exports.concatMapTo = concatMapTo;
 
 /***/ }),
 
+/***/ 448:
+/***/ (function(module) {
+
+"use strict";
+
+
+module.exports = options => {
+	options = Object.assign({
+		onlyFirst: false
+	}, options);
+
+	const pattern = [
+		'[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
+		'(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))'
+	].join('|');
+
+	return new RegExp(pattern, options.onlyFirst ? undefined : 'g');
+};
+
+
+/***/ }),
+
 /***/ 454:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -11251,7 +11273,7 @@ function _isUint8Array(obj) {
   return Buffer.isBuffer(obj) || obj instanceof OurUint8Array;
 }
 
-var destroyImpl = __webpack_require__(7605);
+var destroyImpl = __webpack_require__(7343);
 
 var _require = __webpack_require__(8295),
     getHighWaterMark = _require.getHighWaterMark;
@@ -16412,6 +16434,69 @@ if ( true && require.extensions) {
 
 /***/ }),
 
+/***/ 645:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const stream_1 = __webpack_require__(2413);
+const fsStat = __webpack_require__(3231);
+const fsWalk = __webpack_require__(7522);
+const reader_1 = __webpack_require__(5404);
+class ReaderStream extends reader_1.default {
+    constructor() {
+        super(...arguments);
+        this._walkStream = fsWalk.walkStream;
+        this._stat = fsStat.stat;
+    }
+    dynamic(root, options) {
+        return this._walkStream(root, options);
+    }
+    static(patterns, options) {
+        const filepaths = patterns.map(this._getFullEntryPath, this);
+        const stream = new stream_1.PassThrough({ objectMode: true });
+        stream._write = (index, _enc, done) => {
+            return this._getEntry(filepaths[index], patterns[index], options)
+                .then((entry) => {
+                if (entry !== null && options.entryFilter(entry)) {
+                    stream.push(entry);
+                }
+                if (index === filepaths.length - 1) {
+                    stream.end();
+                }
+                done();
+            })
+                .catch(done);
+        };
+        for (let i = 0; i < filepaths.length; i++) {
+            stream.write(i);
+        }
+        return stream;
+    }
+    _getEntry(filepath, pattern, options) {
+        return this._getStat(filepath)
+            .then((stats) => this._makeEntry(stats, pattern))
+            .catch((error) => {
+            if (options.errorFilter(error)) {
+                return null;
+            }
+            throw error;
+        });
+    }
+    _getStat(filepath) {
+        return new Promise((resolve, reject) => {
+            this._stat(filepath, this._fsStatSettings, (error, stats) => {
+                return error === null ? resolve(stats) : reject(error);
+            });
+        });
+    }
+}
+exports.default = ReaderStream;
+
+
+/***/ }),
+
 /***/ 655:
 /***/ (function(module) {
 
@@ -17949,7 +18034,7 @@ module.exports = function (letter, i, exploded) {
 var fs   = __webpack_require__(5747)
 var ini  = __webpack_require__(62)
 var path = __webpack_require__(5622)
-var stripJsonComments = __webpack_require__(1165)
+var stripJsonComments = __webpack_require__(6159)
 
 var parse = exports.parse = function (content) {
 
@@ -19524,6 +19609,21 @@ var Scheduler = (function () {
 }());
 exports.Scheduler = Scheduler;
 //# sourceMappingURL=Scheduler.js.map
+
+/***/ }),
+
+/***/ 797:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const ansiRegex = __webpack_require__(448);
+
+const stripAnsi = string => typeof string === 'string' ? string.replace(ansiRegex(), '') : string;
+
+module.exports = stripAnsi;
+module.exports.default = stripAnsi;
+
 
 /***/ }),
 
@@ -21579,76 +21679,6 @@ Table.prototype.toString = function (){
 module.exports = Table;
 
 module.exports.version = '0.0.1';
-
-
-/***/ }),
-
-/***/ 887:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const utils = __webpack_require__(2444);
-const partial_1 = __webpack_require__(1075);
-class DeepFilter {
-    constructor(_settings, _micromatchOptions) {
-        this._settings = _settings;
-        this._micromatchOptions = _micromatchOptions;
-    }
-    getFilter(basePath, positive, negative) {
-        const matcher = this._getMatcher(positive);
-        const negativeRe = this._getNegativePatternsRe(negative);
-        return (entry) => this._filter(basePath, entry, matcher, negativeRe);
-    }
-    _getMatcher(patterns) {
-        return new partial_1.default(patterns, this._settings, this._micromatchOptions);
-    }
-    _getNegativePatternsRe(patterns) {
-        const affectDepthOfReadingPatterns = patterns.filter(utils.pattern.isAffectDepthOfReadingPattern);
-        return utils.pattern.convertPatternsToRe(affectDepthOfReadingPatterns, this._micromatchOptions);
-    }
-    _filter(basePath, entry, matcher, negativeRe) {
-        if (this._isSkippedByDeep(basePath, entry.path)) {
-            return false;
-        }
-        if (this._isSkippedSymbolicLink(entry)) {
-            return false;
-        }
-        const filepath = utils.path.removeLeadingDotSegment(entry.path);
-        if (this._isSkippedByPositivePatterns(filepath, matcher)) {
-            return false;
-        }
-        return this._isSkippedByNegativePatterns(filepath, negativeRe);
-    }
-    _isSkippedByDeep(basePath, entryPath) {
-        /**
-         * Avoid unnecessary depth calculations when it doesn't matter.
-         */
-        if (this._settings.deep === Infinity) {
-            return false;
-        }
-        return this._getEntryLevel(basePath, entryPath) >= this._settings.deep;
-    }
-    _getEntryLevel(basePath, entryPath) {
-        const entryPathDepth = entryPath.split('/').length;
-        if (basePath === '') {
-            return entryPathDepth;
-        }
-        const basePathDepth = basePath.split('/').length;
-        return entryPathDepth - basePathDepth;
-    }
-    _isSkippedSymbolicLink(entry) {
-        return !this._settings.followSymbolicLinks && entry.dirent.isSymbolicLink();
-    }
-    _isSkippedByPositivePatterns(entryPath, matcher) {
-        return !this._settings.baseNameMatch && !matcher.match(entryPath);
-    }
-    _isSkippedByNegativePatterns(entryPath, patternsRe) {
-        return !utils.pattern.matchAny(entryPath, patternsRe);
-    }
-}
-exports.default = DeepFilter;
 
 
 /***/ }),
@@ -24576,52 +24606,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 1075:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const matcher_1 = __webpack_require__(5320);
-class PartialMatcher extends matcher_1.default {
-    match(filepath) {
-        const parts = filepath.split('/');
-        const levels = parts.length;
-        const patterns = this._storage.filter((info) => !info.complete || info.segments.length > levels);
-        for (const pattern of patterns) {
-            const section = pattern.sections[0];
-            /**
-             * In this case, the pattern has a globstar and we must read all directories unconditionally,
-             * but only if the level has reached the end of the first group.
-             *
-             * fixtures/{a,b}/**
-             *  ^ true/false  ^ always true
-            */
-            if (!pattern.complete && levels > section.length) {
-                return true;
-            }
-            const match = parts.every((part, index) => {
-                const segment = pattern.segments[index];
-                if (segment.dynamic && segment.patternRe.test(part)) {
-                    return true;
-                }
-                if (!segment.dynamic && segment.pattern === part) {
-                    return true;
-                }
-                return false;
-            });
-            if (match) {
-                return true;
-            }
-        }
-        return false;
-    }
-}
-exports.default = PartialMatcher;
-
-
-/***/ }),
-
 /***/ 1078:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -24940,6 +24924,47 @@ var MulticastOperator = (function () {
 }());
 exports.MulticastOperator = MulticastOperator;
 //# sourceMappingURL=multicast.js.map
+
+/***/ }),
+
+/***/ 1108:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.removeLeadingDotSegment = exports.escape = exports.makeAbsolute = exports.unixify = void 0;
+const path = __webpack_require__(5622);
+const LEADING_DOT_SEGMENT_CHARACTERS_COUNT = 2; // ./ or .\\
+const UNESCAPED_GLOB_SYMBOLS_RE = /(\\?)([()*?[\]{|}]|^!|[!+@](?=\())/g;
+/**
+ * Designed to work only with simple paths: `dir\\file`.
+ */
+function unixify(filepath) {
+    return filepath.replace(/\\/g, '/');
+}
+exports.unixify = unixify;
+function makeAbsolute(cwd, filepath) {
+    return path.resolve(cwd, filepath);
+}
+exports.makeAbsolute = makeAbsolute;
+function escape(pattern) {
+    return pattern.replace(UNESCAPED_GLOB_SYMBOLS_RE, '\\$2');
+}
+exports.escape = escape;
+function removeLeadingDotSegment(entry) {
+    // We do not use `startsWith` because this is 10x slower than current implementation for some cases.
+    // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
+    if (entry.charAt(0) === '.') {
+        const secondCharactery = entry.charAt(1);
+        if (secondCharactery === '/' || secondCharactery === '\\') {
+            return entry.slice(LEADING_DOT_SEGMENT_CHARACTERS_COUNT);
+        }
+    }
+    return entry;
+}
+exports.removeLeadingDotSegment = removeLeadingDotSegment;
+
 
 /***/ }),
 
@@ -26697,84 +26722,6 @@ module.exports = {"$id":"content.json#","$schema":"http://json-schema.org/draft-
 
 /***/ }),
 
-/***/ 1165:
-/***/ (function(module) {
-
-"use strict";
-
-var singleComment = 1;
-var multiComment = 2;
-
-function stripWithoutWhitespace() {
-	return '';
-}
-
-function stripWithWhitespace(str, start, end) {
-	return str.slice(start, end).replace(/\S/g, ' ');
-}
-
-module.exports = function (str, opts) {
-	opts = opts || {};
-
-	var currentChar;
-	var nextChar;
-	var insideString = false;
-	var insideComment = false;
-	var offset = 0;
-	var ret = '';
-	var strip = opts.whitespace === false ? stripWithoutWhitespace : stripWithWhitespace;
-
-	for (var i = 0; i < str.length; i++) {
-		currentChar = str[i];
-		nextChar = str[i + 1];
-
-		if (!insideComment && currentChar === '"') {
-			var escaped = str[i - 1] === '\\' && str[i - 2] !== '\\';
-			if (!escaped) {
-				insideString = !insideString;
-			}
-		}
-
-		if (insideString) {
-			continue;
-		}
-
-		if (!insideComment && currentChar + nextChar === '//') {
-			ret += str.slice(offset, i);
-			offset = i;
-			insideComment = singleComment;
-			i++;
-		} else if (insideComment === singleComment && currentChar + nextChar === '\r\n') {
-			i++;
-			insideComment = false;
-			ret += strip(str, offset, i);
-			offset = i;
-			continue;
-		} else if (insideComment === singleComment && currentChar === '\n') {
-			insideComment = false;
-			ret += strip(str, offset, i);
-			offset = i;
-		} else if (!insideComment && currentChar + nextChar === '/*') {
-			ret += str.slice(offset, i);
-			offset = i;
-			insideComment = multiComment;
-			i++;
-			continue;
-		} else if (insideComment === multiComment && currentChar + nextChar === '*/') {
-			i++;
-			insideComment = false;
-			ret += strip(str, offset, i + 1);
-			offset = i + 1;
-			continue;
-		}
-	}
-
-	return ret + (insideComment ? strip(str.substr(offset)) : str.substr(offset));
-};
-
-
-/***/ }),
-
 /***/ 1168:
 /***/ (function(module) {
 
@@ -27367,7 +27314,7 @@ var pna = __webpack_require__(5822);
 module.exports = Readable;
 
 /*<replacement>*/
-var isArray = __webpack_require__(9563);
+var isArray = __webpack_require__(7605);
 /*</replacement>*/
 
 /*<replacement>*/
@@ -30834,6 +30781,61 @@ exports.IndexedSourceMapConsumer = IndexedSourceMapConsumer;
 
 /***/ }),
 
+/***/ 1278:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const stripAnsi = __webpack_require__(4294);
+const isFullwidthCodePoint = __webpack_require__(9475);
+const emojiRegex = __webpack_require__(262);
+
+const stringWidth = string => {
+	if (typeof string !== 'string' || string.length === 0) {
+		return 0;
+	}
+
+	string = stripAnsi(string);
+
+	if (string.length === 0) {
+		return 0;
+	}
+
+	string = string.replace(emojiRegex(), '  ');
+
+	let width = 0;
+
+	for (let i = 0; i < string.length; i++) {
+		const code = string.codePointAt(i);
+
+		// Ignore control characters
+		if (code <= 0x1F || (code >= 0x7F && code <= 0x9F)) {
+			continue;
+		}
+
+		// Ignore combining characters
+		if (code >= 0x300 && code <= 0x36F) {
+			continue;
+		}
+
+		// Surrogates
+		if (code > 0xFFFF) {
+			i++;
+		}
+
+		width += isFullwidthCodePoint(code) ? 2 : 1;
+	}
+
+	return width;
+};
+
+module.exports = stringWidth;
+// TODO: remove this in the next major version
+module.exports.default = stringWidth;
+
+
+/***/ }),
+
 /***/ 1279:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -31400,20 +31402,6 @@ module.exports = {
 /***/ (function(module) {
 
 module.exports = {"$id":"log.json#","$schema":"http://json-schema.org/draft-06/schema#","type":"object","required":["version","creator","entries"],"properties":{"version":{"type":"string"},"creator":{"$ref":"creator.json#"},"browser":{"$ref":"browser.json#"},"pages":{"type":"array","items":{"$ref":"page.json#"}},"entries":{"type":"array","items":{"$ref":"entry.json#"}},"comment":{"type":"string"}}};
-
-/***/ }),
-
-/***/ 1320:
-/***/ (function(module) {
-
-"use strict";
-
-
-module.exports = function () {
-  // https://mths.be/emoji
-  return /\uD83C\uDFF4(?:\uDB40\uDC67\uDB40\uDC62(?:\uDB40\uDC65\uDB40\uDC6E\uDB40\uDC67|\uDB40\uDC77\uDB40\uDC6C\uDB40\uDC73|\uDB40\uDC73\uDB40\uDC63\uDB40\uDC74)\uDB40\uDC7F|\u200D\u2620\uFE0F)|\uD83D\uDC69\u200D\uD83D\uDC69\u200D(?:\uD83D\uDC66\u200D\uD83D\uDC66|\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67]))|\uD83D\uDC68(?:\u200D(?:\u2764\uFE0F\u200D(?:\uD83D\uDC8B\u200D)?\uD83D\uDC68|(?:\uD83D[\uDC68\uDC69])\u200D(?:\uD83D\uDC66\u200D\uD83D\uDC66|\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67]))|\uD83D\uDC66\u200D\uD83D\uDC66|\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67])|\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3])|(?:\uD83C[\uDFFB-\uDFFF])\u200D(?:\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3]))|\uD83D\uDC69\u200D(?:\u2764\uFE0F\u200D(?:\uD83D\uDC8B\u200D(?:\uD83D[\uDC68\uDC69])|\uD83D[\uDC68\uDC69])|\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3])|\uD83D\uDC69\u200D\uD83D\uDC66\u200D\uD83D\uDC66|(?:\uD83D\uDC41\uFE0F\u200D\uD83D\uDDE8|\uD83D\uDC69(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2695\u2696\u2708]|\uD83D\uDC68(?:(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2695\u2696\u2708]|\u200D[\u2695\u2696\u2708])|(?:(?:\u26F9|\uD83C[\uDFCB\uDFCC]|\uD83D\uDD75)\uFE0F|\uD83D\uDC6F|\uD83E[\uDD3C\uDDDE\uDDDF])\u200D[\u2640\u2642]|(?:\u26F9|\uD83C[\uDFCB\uDFCC]|\uD83D\uDD75)(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2640\u2642]|(?:\uD83C[\uDFC3\uDFC4\uDFCA]|\uD83D[\uDC6E\uDC71\uDC73\uDC77\uDC81\uDC82\uDC86\uDC87\uDE45-\uDE47\uDE4B\uDE4D\uDE4E\uDEA3\uDEB4-\uDEB6]|\uD83E[\uDD26\uDD37-\uDD39\uDD3D\uDD3E\uDDB8\uDDB9\uDDD6-\uDDDD])(?:(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2640\u2642]|\u200D[\u2640\u2642])|\uD83D\uDC69\u200D[\u2695\u2696\u2708])\uFE0F|\uD83D\uDC69\u200D\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67])|\uD83D\uDC69\u200D\uD83D\uDC69\u200D(?:\uD83D[\uDC66\uDC67])|\uD83D\uDC68(?:\u200D(?:(?:\uD83D[\uDC68\uDC69])\u200D(?:\uD83D[\uDC66\uDC67])|\uD83D[\uDC66\uDC67])|\uD83C[\uDFFB-\uDFFF])|\uD83C\uDFF3\uFE0F\u200D\uD83C\uDF08|\uD83D\uDC69\u200D\uD83D\uDC67|\uD83D\uDC69(?:\uD83C[\uDFFB-\uDFFF])\u200D(?:\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3])|\uD83D\uDC69\u200D\uD83D\uDC66|\uD83C\uDDF6\uD83C\uDDE6|\uD83C\uDDFD\uD83C\uDDF0|\uD83C\uDDF4\uD83C\uDDF2|\uD83D\uDC69(?:\uD83C[\uDFFB-\uDFFF])|\uD83C\uDDED(?:\uD83C[\uDDF0\uDDF2\uDDF3\uDDF7\uDDF9\uDDFA])|\uD83C\uDDEC(?:\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEE\uDDF1-\uDDF3\uDDF5-\uDDFA\uDDFC\uDDFE])|\uD83C\uDDEA(?:\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDED\uDDF7-\uDDFA])|\uD83C\uDDE8(?:\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDEE\uDDF0-\uDDF5\uDDF7\uDDFA-\uDDFF])|\uD83C\uDDF2(?:\uD83C[\uDDE6\uDDE8-\uDDED\uDDF0-\uDDFF])|\uD83C\uDDF3(?:\uD83C[\uDDE6\uDDE8\uDDEA-\uDDEC\uDDEE\uDDF1\uDDF4\uDDF5\uDDF7\uDDFA\uDDFF])|\uD83C\uDDFC(?:\uD83C[\uDDEB\uDDF8])|\uD83C\uDDFA(?:\uD83C[\uDDE6\uDDEC\uDDF2\uDDF3\uDDF8\uDDFE\uDDFF])|\uD83C\uDDF0(?:\uD83C[\uDDEA\uDDEC-\uDDEE\uDDF2\uDDF3\uDDF5\uDDF7\uDDFC\uDDFE\uDDFF])|\uD83C\uDDEF(?:\uD83C[\uDDEA\uDDF2\uDDF4\uDDF5])|\uD83C\uDDF8(?:\uD83C[\uDDE6-\uDDEA\uDDEC-\uDDF4\uDDF7-\uDDF9\uDDFB\uDDFD-\uDDFF])|\uD83C\uDDEE(?:\uD83C[\uDDE8-\uDDEA\uDDF1-\uDDF4\uDDF6-\uDDF9])|\uD83C\uDDFF(?:\uD83C[\uDDE6\uDDF2\uDDFC])|\uD83C\uDDEB(?:\uD83C[\uDDEE-\uDDF0\uDDF2\uDDF4\uDDF7])|\uD83C\uDDF5(?:\uD83C[\uDDE6\uDDEA-\uDDED\uDDF0-\uDDF3\uDDF7-\uDDF9\uDDFC\uDDFE])|\uD83C\uDDE9(?:\uD83C[\uDDEA\uDDEC\uDDEF\uDDF0\uDDF2\uDDF4\uDDFF])|\uD83C\uDDF9(?:\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDED\uDDEF-\uDDF4\uDDF7\uDDF9\uDDFB\uDDFC\uDDFF])|\uD83C\uDDE7(?:\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEF\uDDF1-\uDDF4\uDDF6-\uDDF9\uDDFB\uDDFC\uDDFE\uDDFF])|[#\*0-9]\uFE0F\u20E3|\uD83C\uDDF1(?:\uD83C[\uDDE6-\uDDE8\uDDEE\uDDF0\uDDF7-\uDDFB\uDDFE])|\uD83C\uDDE6(?:\uD83C[\uDDE8-\uDDEC\uDDEE\uDDF1\uDDF2\uDDF4\uDDF6-\uDDFA\uDDFC\uDDFD\uDDFF])|\uD83C\uDDF7(?:\uD83C[\uDDEA\uDDF4\uDDF8\uDDFA\uDDFC])|\uD83C\uDDFB(?:\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDEE\uDDF3\uDDFA])|\uD83C\uDDFE(?:\uD83C[\uDDEA\uDDF9])|(?:\uD83C[\uDFC3\uDFC4\uDFCA]|\uD83D[\uDC6E\uDC71\uDC73\uDC77\uDC81\uDC82\uDC86\uDC87\uDE45-\uDE47\uDE4B\uDE4D\uDE4E\uDEA3\uDEB4-\uDEB6]|\uD83E[\uDD26\uDD37-\uDD39\uDD3D\uDD3E\uDDB8\uDDB9\uDDD6-\uDDDD])(?:\uD83C[\uDFFB-\uDFFF])|(?:\u26F9|\uD83C[\uDFCB\uDFCC]|\uD83D\uDD75)(?:\uD83C[\uDFFB-\uDFFF])|(?:[\u261D\u270A-\u270D]|\uD83C[\uDF85\uDFC2\uDFC7]|\uD83D[\uDC42\uDC43\uDC46-\uDC50\uDC66\uDC67\uDC70\uDC72\uDC74-\uDC76\uDC78\uDC7C\uDC83\uDC85\uDCAA\uDD74\uDD7A\uDD90\uDD95\uDD96\uDE4C\uDE4F\uDEC0\uDECC]|\uD83E[\uDD18-\uDD1C\uDD1E\uDD1F\uDD30-\uDD36\uDDB5\uDDB6\uDDD1-\uDDD5])(?:\uD83C[\uDFFB-\uDFFF])|(?:[\u231A\u231B\u23E9-\u23EC\u23F0\u23F3\u25FD\u25FE\u2614\u2615\u2648-\u2653\u267F\u2693\u26A1\u26AA\u26AB\u26BD\u26BE\u26C4\u26C5\u26CE\u26D4\u26EA\u26F2\u26F3\u26F5\u26FA\u26FD\u2705\u270A\u270B\u2728\u274C\u274E\u2753-\u2755\u2757\u2795-\u2797\u27B0\u27BF\u2B1B\u2B1C\u2B50\u2B55]|\uD83C[\uDC04\uDCCF\uDD8E\uDD91-\uDD9A\uDDE6-\uDDFF\uDE01\uDE1A\uDE2F\uDE32-\uDE36\uDE38-\uDE3A\uDE50\uDE51\uDF00-\uDF20\uDF2D-\uDF35\uDF37-\uDF7C\uDF7E-\uDF93\uDFA0-\uDFCA\uDFCF-\uDFD3\uDFE0-\uDFF0\uDFF4\uDFF8-\uDFFF]|\uD83D[\uDC00-\uDC3E\uDC40\uDC42-\uDCFC\uDCFF-\uDD3D\uDD4B-\uDD4E\uDD50-\uDD67\uDD7A\uDD95\uDD96\uDDA4\uDDFB-\uDE4F\uDE80-\uDEC5\uDECC\uDED0-\uDED2\uDEEB\uDEEC\uDEF4-\uDEF9]|\uD83E[\uDD10-\uDD3A\uDD3C-\uDD3E\uDD40-\uDD45\uDD47-\uDD70\uDD73-\uDD76\uDD7A\uDD7C-\uDDA2\uDDB0-\uDDB9\uDDC0-\uDDC2\uDDD0-\uDDFF])|(?:[#\*0-9\xA9\xAE\u203C\u2049\u2122\u2139\u2194-\u2199\u21A9\u21AA\u231A\u231B\u2328\u23CF\u23E9-\u23F3\u23F8-\u23FA\u24C2\u25AA\u25AB\u25B6\u25C0\u25FB-\u25FE\u2600-\u2604\u260E\u2611\u2614\u2615\u2618\u261D\u2620\u2622\u2623\u2626\u262A\u262E\u262F\u2638-\u263A\u2640\u2642\u2648-\u2653\u265F\u2660\u2663\u2665\u2666\u2668\u267B\u267E\u267F\u2692-\u2697\u2699\u269B\u269C\u26A0\u26A1\u26AA\u26AB\u26B0\u26B1\u26BD\u26BE\u26C4\u26C5\u26C8\u26CE\u26CF\u26D1\u26D3\u26D4\u26E9\u26EA\u26F0-\u26F5\u26F7-\u26FA\u26FD\u2702\u2705\u2708-\u270D\u270F\u2712\u2714\u2716\u271D\u2721\u2728\u2733\u2734\u2744\u2747\u274C\u274E\u2753-\u2755\u2757\u2763\u2764\u2795-\u2797\u27A1\u27B0\u27BF\u2934\u2935\u2B05-\u2B07\u2B1B\u2B1C\u2B50\u2B55\u3030\u303D\u3297\u3299]|\uD83C[\uDC04\uDCCF\uDD70\uDD71\uDD7E\uDD7F\uDD8E\uDD91-\uDD9A\uDDE6-\uDDFF\uDE01\uDE02\uDE1A\uDE2F\uDE32-\uDE3A\uDE50\uDE51\uDF00-\uDF21\uDF24-\uDF93\uDF96\uDF97\uDF99-\uDF9B\uDF9E-\uDFF0\uDFF3-\uDFF5\uDFF7-\uDFFF]|\uD83D[\uDC00-\uDCFD\uDCFF-\uDD3D\uDD49-\uDD4E\uDD50-\uDD67\uDD6F\uDD70\uDD73-\uDD7A\uDD87\uDD8A-\uDD8D\uDD90\uDD95\uDD96\uDDA4\uDDA5\uDDA8\uDDB1\uDDB2\uDDBC\uDDC2-\uDDC4\uDDD1-\uDDD3\uDDDC-\uDDDE\uDDE1\uDDE3\uDDE8\uDDEF\uDDF3\uDDFA-\uDE4F\uDE80-\uDEC5\uDECB-\uDED2\uDEE0-\uDEE5\uDEE9\uDEEB\uDEEC\uDEF0\uDEF3-\uDEF9]|\uD83E[\uDD10-\uDD3A\uDD3C-\uDD3E\uDD40-\uDD45\uDD47-\uDD70\uDD73-\uDD76\uDD7A\uDD7C-\uDDA2\uDDB0-\uDDB9\uDDC0-\uDDC2\uDDD0-\uDDFF])\uFE0F|(?:[\u261D\u26F9\u270A-\u270D]|\uD83C[\uDF85\uDFC2-\uDFC4\uDFC7\uDFCA-\uDFCC]|\uD83D[\uDC42\uDC43\uDC46-\uDC50\uDC66-\uDC69\uDC6E\uDC70-\uDC78\uDC7C\uDC81-\uDC83\uDC85-\uDC87\uDCAA\uDD74\uDD75\uDD7A\uDD90\uDD95\uDD96\uDE45-\uDE47\uDE4B-\uDE4F\uDEA3\uDEB4-\uDEB6\uDEC0\uDECC]|\uD83E[\uDD18-\uDD1C\uDD1E\uDD1F\uDD26\uDD30-\uDD39\uDD3D\uDD3E\uDDB5\uDDB6\uDDB8\uDDB9\uDDD1-\uDDDD])/g;
-};
-
 
 /***/ }),
 
@@ -33141,36 +33129,6 @@ const signalsByNumber=getSignalsByNumber();exports.signalsByNumber=signalsByNumb
 
 /***/ }),
 
-/***/ 1453:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.splitWhen = exports.flatten = void 0;
-function flatten(items) {
-    return items.reduce((collection, item) => [].concat(collection, item), []);
-}
-exports.flatten = flatten;
-function splitWhen(items, predicate) {
-    const result = [[]];
-    let groupIndex = 0;
-    for (const item of items) {
-        if (predicate(item)) {
-            groupIndex++;
-            result[groupIndex] = [];
-        }
-        else {
-            result[groupIndex].push(item);
-        }
-    }
-    return result;
-}
-exports.splitWhen = splitWhen;
-
-
-/***/ }),
-
 /***/ 1457:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -34135,69 +34093,6 @@ var DeMaterializeSubscriber = (function (_super) {
 
 /***/ }),
 
-/***/ 1517:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const stream_1 = __webpack_require__(2413);
-const fsStat = __webpack_require__(3231);
-const fsWalk = __webpack_require__(7522);
-const reader_1 = __webpack_require__(9949);
-class ReaderStream extends reader_1.default {
-    constructor() {
-        super(...arguments);
-        this._walkStream = fsWalk.walkStream;
-        this._stat = fsStat.stat;
-    }
-    dynamic(root, options) {
-        return this._walkStream(root, options);
-    }
-    static(patterns, options) {
-        const filepaths = patterns.map(this._getFullEntryPath, this);
-        const stream = new stream_1.PassThrough({ objectMode: true });
-        stream._write = (index, _enc, done) => {
-            return this._getEntry(filepaths[index], patterns[index], options)
-                .then((entry) => {
-                if (entry !== null && options.entryFilter(entry)) {
-                    stream.push(entry);
-                }
-                if (index === filepaths.length - 1) {
-                    stream.end();
-                }
-                done();
-            })
-                .catch(done);
-        };
-        for (let i = 0; i < filepaths.length; i++) {
-            stream.write(i);
-        }
-        return stream;
-    }
-    _getEntry(filepath, pattern, options) {
-        return this._getStat(filepath)
-            .then((stats) => this._makeEntry(stats, pattern))
-            .catch((error) => {
-            if (options.errorFilter(error)) {
-                return null;
-            }
-            throw error;
-        });
-    }
-    _getStat(filepath) {
-        return new Promise((resolve, reject) => {
-            this._stat(filepath, this._fsStatSettings, (error, stats) => {
-                return error === null ? resolve(stats) : reject(error);
-            });
-        });
-    }
-}
-exports.default = ReaderStream;
-
-
-/***/ }),
-
 /***/ 1520:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -34700,6 +34595,70 @@ let of = function of(...args) {
 };
 
 exports.of = of;
+
+
+/***/ }),
+
+/***/ 1565:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const utils = __webpack_require__(9213);
+class EntryFilter {
+    constructor(_settings, _micromatchOptions) {
+        this._settings = _settings;
+        this._micromatchOptions = _micromatchOptions;
+        this.index = new Map();
+    }
+    getFilter(positive, negative) {
+        const positiveRe = utils.pattern.convertPatternsToRe(positive, this._micromatchOptions);
+        const negativeRe = utils.pattern.convertPatternsToRe(negative, this._micromatchOptions);
+        return (entry) => this._filter(entry, positiveRe, negativeRe);
+    }
+    _filter(entry, positiveRe, negativeRe) {
+        if (this._settings.unique && this._isDuplicateEntry(entry)) {
+            return false;
+        }
+        if (this._onlyFileFilter(entry) || this._onlyDirectoryFilter(entry)) {
+            return false;
+        }
+        if (this._isSkippedByAbsoluteNegativePatterns(entry.path, negativeRe)) {
+            return false;
+        }
+        const filepath = this._settings.baseNameMatch ? entry.name : entry.path;
+        const isMatched = this._isMatchToPatterns(filepath, positiveRe) && !this._isMatchToPatterns(entry.path, negativeRe);
+        if (this._settings.unique && isMatched) {
+            this._createIndexRecord(entry);
+        }
+        return isMatched;
+    }
+    _isDuplicateEntry(entry) {
+        return this.index.has(entry.path);
+    }
+    _createIndexRecord(entry) {
+        this.index.set(entry.path, undefined);
+    }
+    _onlyFileFilter(entry) {
+        return this._settings.onlyFiles && !entry.dirent.isFile();
+    }
+    _onlyDirectoryFilter(entry) {
+        return this._settings.onlyDirectories && !entry.dirent.isDirectory();
+    }
+    _isSkippedByAbsoluteNegativePatterns(entryPath, patternsRe) {
+        if (!this._settings.absolute) {
+            return false;
+        }
+        const fullpath = utils.path.makeAbsolute(this._settings.cwd, entryPath);
+        return utils.pattern.matchAny(fullpath, patternsRe);
+    }
+    _isMatchToPatterns(entryPath, patternsRe) {
+        const filepath = utils.path.removeLeadingDotSegment(entryPath);
+        return utils.pattern.matchAny(filepath, patternsRe);
+    }
+}
+exports.default = EntryFilter;
 
 
 /***/ }),
@@ -35308,7 +35267,7 @@ function wrap(txt, len) {
 const fs = __webpack_require__(5747);
 const arrayUnion = __webpack_require__(4464);
 const merge2 = __webpack_require__(6851);
-const fastGlob = __webpack_require__(7406);
+const fastGlob = __webpack_require__(8779);
 const dirGlob = __webpack_require__(9895);
 const gitignore = __webpack_require__(3062);
 const {FilterStream, UniqueStream} = __webpack_require__(213);
@@ -35921,13 +35880,16 @@ exports.verifyConditions = (config, context) => {
     logger.log('configPath', configPath)
 
     if (!fs.existsSync(configPath)) {
-        throw new SemanticReleaseError(
+        logger.warn(
             `Failed to locate d2.config.js file, does it exist in ${path.resolve(
                 pkgRoot
-            )}?`,
-            'EMISSINGD2CONFIG',
-            'd2.config.js is necessary to automatically publish to the App Hub'
+            )}?`
         )
+        logger.warn(
+            'd2.config.js is necessary to automatically publish to the App Hub. Skipping',
+            pkgRoot
+        )
+        return
     }
 
     const d2Config = require(configPath)
@@ -38217,45 +38179,6 @@ function transformLiteralToPath(sexpr) {
   }
 }
 //# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIi4uLy4uLy4uLy4uL2xpYi9oYW5kbGViYXJzL2NvbXBpbGVyL2NvbXBpbGVyLmpzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozt5QkFFc0IsY0FBYzs7OztxQkFDSyxVQUFVOzttQkFDbkMsT0FBTzs7OztBQUV2QixJQUFNLEtBQUssR0FBRyxFQUFFLENBQUMsS0FBSyxDQUFDOztBQUVoQixTQUFTLFFBQVEsR0FBRyxFQUFFOzs7Ozs7O0FBTzdCLFFBQVEsQ0FBQyxTQUFTLEdBQUc7QUFDbkIsVUFBUSxFQUFFLFFBQVE7O0FBRWxCLFFBQU0sRUFBRSxnQkFBUyxLQUFLLEVBQUU7QUFDdEIsUUFBSSxHQUFHLEdBQUcsSUFBSSxDQUFDLE9BQU8sQ0FBQyxNQUFNLENBQUM7QUFDOUIsUUFBSSxLQUFLLENBQUMsT0FBTyxDQUFDLE1BQU0sS0FBSyxHQUFHLEVBQUU7QUFDaEMsYUFBTyxLQUFLLENBQUM7S0FDZDs7QUFFRCxTQUFLLElBQUksQ0FBQyxHQUFHLENBQUMsRUFBRSxDQUFDLEdBQUcsR0FBRyxFQUFFLENBQUMsRUFBRSxFQUFFO0FBQzVCLFVBQUksTUFBTSxHQUFHLElBQUksQ0FBQyxPQUFPLENBQUMsQ0FBQyxDQUFDO1VBQzFCLFdBQVcsR0FBRyxLQUFLLENBQUMsT0FBTyxDQUFDLENBQUMsQ0FBQyxDQUFDO0FBQ2pDLFVBQ0UsTUFBTSxDQUFDLE1BQU0sS0FBSyxXQUFXLENBQUMsTUFBTSxJQUNwQyxDQUFDLFNBQVMsQ0FBQyxNQUFNLENBQUMsSUFBSSxFQUFFLFdBQVcsQ0FBQyxJQUFJLENBQUMsRUFDekM7QUFDQSxlQUFPLEtBQUssQ0FBQztPQUNkO0tBQ0Y7Ozs7QUFJRCxPQUFHLEdBQUcsSUFBSSxDQUFDLFFBQVEsQ0FBQyxNQUFNLENBQUM7QUFDM0IsU0FBSyxJQUFJLENBQUMsR0FBRyxDQUFDLEVBQUUsQ0FBQyxHQUFHLEdBQUcsRUFBRSxDQUFDLEVBQUUsRUFBRTtBQUM1QixVQUFJLENBQUMsSUFBSSxDQUFDLFFBQVEs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LENBQUMsQ0FBQyxDQUFDLENBQUMsRUFBRSxDQUFDLENBQUMsQ0FBQyxDQUFDLENBQUMsRUFBRTtBQUMxQixlQUFPLEtBQUssQ0FBQztPQUNkO0tBQ0Y7QUFDRCxXQUFPLElBQUksQ0FBQztHQUNiO0NBQ0Y7O0FBRUQsU0FBUyxzQkFBc0IsQ0FBQyxLQUFLLEVBQUU7QUFDckMsTUFBSSxDQUFDLEtBQUssQ0FBQyxJQUFJLENBQUMsS0FBSyxFQUFFO0FBQ3JCLFFBQUksT0FBTyxHQUFHLEtBQUssQ0FBQyxJQUFJLENBQUM7OztBQUd6QixTQUFLLENBQUMsSUFBSSxHQUFHO0FBQ1gsVUFBSSxFQUFFLGdCQUFnQjtBQUN0QixVQUFJLEVBQUUsS0FBSztBQUNYLFdBQUssRUFBRSxDQUFDO0FBQ1IsV0FBSyxFQUFFLENBQUMsT0FBTyxDQUFDLFFBQVEsR0FBRyxFQUFFLENBQUM7QUFDOUIsY0FBUSxFQUFFLE9BQU8sQ0FBQyxRQUFRLEdBQUcsRUFBRTtBQUMvQixTQUFHLEVBQUUsT0FBTyxDQUFDLEdBQUc7S0FDakIsQ0FBQztHQUNIO0NBQ0YiLCJmaWxlIjoiY29tcGlsZXIuanMiLCJzb3VyY2VzQ29udGVudCI6WyIvKiBlc2xpbnQtZGlzYWJsZSBuZXctY2FwICovXG5cbmltcG9ydCBFeGNlcHRpb24gZnJvbSAnLi4vZXhjZXB0aW9uJztcbmltcG9ydCB7IGlzQXJyYXksIGluZGV4T2YsIGV4dGVuZCB9IGZyb20gJy4uL3V0aWxzJztcbmltcG9ydCBBU1QgZnJvbSAnLi9hc3QnO1xuXG5jb25zdCBzbGljZSA9IFtdLnNsaWNlO1xuXG5leHBvcnQgZnVuY3Rpb24gQ29tcGlsZXIoKSB7fVxuXG4vLyB0aGUgZm91bmRIZWxwZXIgcmVnaXN0ZXIgd2lsbCBkaXNhbWJpZ3VhdGUgaGVscGVyIGxvb2t1cCBmcm9tIGZpbmRpbmcgYVxuLy8gZnVuY3Rpb24gaW4gYSBjb250ZXh0LiBUaGlzIGlzIG5lY2Vzc2FyeSBmb3IgbXVzdGFjaGUgY29tcGF0aWJpbGl0eSwgd2hpY2hcbi8vIHJlcXVpcmVzIHRoYXQgY29udGV4dCBmdW5jdGlvbnMgaW4gYmxvY2tzIGFyZSBldmFsdWF0ZWQgYnkgYmxvY2tIZWxwZXJNaXNzaW5nLFxuLy8gYW5kIHRoZW4gcHJvY2VlZCBhcyBpZiB0aGUgcmVzdWx0aW5nIHZhbHVlIHdhcyBwcm92aWRlZCB0byBibG9ja0hlbHBlck1pc3NpbmcuXG5cbkNvbXBpbGVyLnByb3RvdHlwZSA9IHtcbiAgY29tcGlsZXI6IENvbXBpbGVyLFxuXG4gIGVxdWFsczogZnVuY3Rpb24ob3RoZXIpIHtcbiAgICBsZXQgbGVuID0gdGhpcy5vcGNvZGVzLmxlbmd0aDtcbiAgICBpZiAob3RoZXIub3Bjb2Rlcy5sZW5ndGggIT09IGxlbikge1xuICAgICAgcmV0dXJuIGZhbHNlO1xuICAgIH1cblxuICAgIGZvciAobGV0IGkgPSAwOyBpIDwgbGVuOyBpKyspIHtcbiAgICAgIGxldCBvcGNvZGUgPSB0aGlzLm9wY29kZXNbaV0sXG4gICAgICAgIG90aGVyT3Bjb2RlID0gb3RoZXIub3Bjb2Rlc1tpXTtcbiAgICAgIGlmIChcbiAgICAgICAgb3Bjb2RlLm9wY29kZSAhPT0gb3RoZXJPcGNvZGUub3Bjb2RlIHx8XG4gICAgICAgICFhcmdFcXVhbHMob3Bjb2RlLmFyZ3MsIG90aGVyT3Bjb2RlLmFyZ3MpXG4gICAgICApIHtcbiAgICAgICAgcmV0dXJuIGZhbHNlO1xuICAgICAgfVxuICAgIH1cblxuICAgIC8vIFdlIGtub3cgdGhhdCBsZW5ndGggaXMgdGhlIHNhbWUgYmV0d2VlbiB0aGUgdHdvIGFycmF5cyBiZWNhdXNlIHRoZXkgYXJlIGRpcmVjdGx5IHRpZWRcbiAgICAvLyB0byB0aGUgb3Bjb2RlIGJlaGF2aW9yIGFib3ZlLlxuICAgIGxlbiA9IHRoaXMuY2hpbGRyZW4ubGVuZ3RoO1xuICAgIGZvciAobGV0IGkgPSAwOyBpIDwgbGVuOyBpKyspIHtcbiAgICAgIGlmICghdGhpcy5jaGlsZHJlbltpXS5lcXVhbHMob3RoZXIuY2hpbGRyZW5baV0pKSB7XG4gICAgICAgIHJldHVybiBmYWxzZTtcbiAgICAgIH1cbiAgICB9XG5cbiAgICByZXR1cm4gdHJ1ZTtcbiAgfSxcblxuICBndWlkOiAwLFxuXG4gIGNvbXBpbGU6IGZ1bmN0aW9uKHByb2dyYW0sIG9wdGlvbnMpIHtcbiAgICB0aGlzLnNvdXJjZU5vZGUgPSBbXTtcbiAgICB0aGlzLm9wY29kZXMgPSBbXTtcbiAgICB0aGlzLmNoaWxkcmVuID0gW107XG4gICAgdGhpcy5vcHRpb25zID0gb3B0aW9ucztcbiAgICB0aGlzLnN0cmluZ1BhcmFtcyA9IG9wdGlvbnMuc3RyaW5nUGFyYW1zO1xuICAgIHRoaXMudHJhY2tJZHMgPSBvcHRpb25zLnRyYWNrSWRzO1xuXG4gICAgb3B0aW9ucy5ibG9ja1BhcmFtcyA9IG9wdGlvbnMuYmxvY2tQYXJhbXMgfHwgW107XG5cbiAgICBvcHRpb25zLmtub3duSGVscGVycyA9IGV4dGVuZChcbiAgICAgIE9iamVjdC5jcmVhdGUobnVsbCksXG4gICAgICB7XG4gICAgICAgIGhlbHBlck1pc3Npbmc6IHRydWUsXG4gICAgICAgIGJsb2NrSGVscGVyTWlzc2luZzogdHJ1ZSxcbiAgICAgICAgZWFjaDogdHJ1ZSxcbiAgICAgICAgaWY6IHRydWUsXG4gICAgICAgIHVubGVzczogdHJ1ZSxcbiAgICAgICAgd2l0aDogdHJ1ZSxcbiAgICAgICAgbG9nOiB0cnVlLFxuICAgICAgICBsb29rdXA6IHRydWVcbiAgICAgIH0sXG4gICAgICBvcHRpb25zLmtub3duSGVscGVyc1xuICAgICk7XG5cbiAgICByZXR1cm4gdGhpcy5hY2NlcHQocHJvZ3JhbSk7XG4gIH0sXG5cbiAgY29tcGlsZVByb2dyYW06IGZ1bmN0aW9uKHByb2dyYW0pIHtcbiAgICBsZXQgY2hpbGRDb21waWxlciA9IG5ldyB0aGlzLmNvbXBpbGVyKCksIC8vIGVzbGludC1kaXNhYmxlLWxpbmUgbmV3LWNhcFxuICAgICAgcmVzdWx0ID0gY2hpbGRDb21waWxlci5jb21waWxlKHByb2dyYW0sIHRoaXMub3B0aW9ucyksXG4gICAgICBndWlkID0gdGhpcy5ndWlkKys7XG5cbiAgICB0aGlzLnVzZVBhcnRpYWwgPSB0aGlzLnVzZVBhcnRpYWwgfHwgcmVzdWx0LnVzZVBhcnRpYWw7XG5cbiAgICB0aGlzLmNoaWxkcmVuW2d1aWRdID0gcmVzdWx0O1xuICAgIHRoaXMudXNlRGVwdGhzID0gdGhpcy51c2VEZXB0aHMgfHwgcmVzdWx0LnVzZURlcHRocztcblxuICAgIHJldHVybiBndWlkO1xuICB9LFxuXG4gIGFjY2VwdDogZnVuY3Rpb24obm9kZSkge1xuICAgIC8qIGlzdGFuYnVsIGlnbm9yZSBuZXh0OiBTYW5pdHkgY29kZSAqL1xuICAgIGlmICghdGhpc1tub2RlLnR5cGVdKSB7XG4gICAgICB0aHJvdyBuZXcgRXhjZXB0aW9uKCdVbmtub3duIHR5cGU6ICcgKyBub2RlLnR5cGUsIG5vZGUpO1xuICAgIH1cblxuICAgIHRoaXMuc291cmNlTm9kZS51bnNoaWZ0KG5vZGUpO1xuICAgIGxldCByZXQgPSB0aGlzW25vZGUudHlwZV0obm9kZSk7XG4gICAgdGhpcy5zb3VyY2VOb2RlLnNoaWZ0KCk7XG4gICAgcmV0dXJuIHJldDtcbiAgfSxcblxuICBQcm9ncmFtOiBmdW5jdGlvbihwcm9ncmFtKSB7XG4gICAgdGhpcy5vcHRpb25zLmJsb2NrUGFyYW1zLnVuc2hpZnQocHJvZ3JhbS5ibG9ja1BhcmFtcyk7XG5cbiAgICBsZXQgYm9keSA9IHByb2dyYW0uYm9keSxcbiAgICAgIGJvZHlMZW5ndGggPSBib2R5Lmxlbmd0aDtcbiAgICBmb3IgKGxldCBpID0gMDsgaSA8IGJvZHlMZW5ndGg7IGkrKykge1xuICAgICAgdGhpcy5hY2NlcHQoYm9keVtpXSk7XG4gICAgfVxuXG4gICAgdGhpcy5vcHRpb25zLmJsb2NrUGFyYW1zLnNoaWZ0KCk7XG5cbiAgICB0aGlzLmlzU2ltcGxlID0gYm9keUxlbmd0aCA9PT0gMTtcbiAgICB0aGlzLmJsb2NrUGFyYW1zID0gcHJvZ3JhbS5ibG9ja1BhcmFtcyA/IHByb2dyYW0uYmxvY2tQYXJhbXMubGVuZ3RoIDogMDtcblxuICAgIHJldHVybiB0aGlzO1xuICB9LFxuXG4gIEJsb2NrU3RhdGVtZW50OiBmdW5jdGlvbihibG9jaykge1xuICAgIHRyYW5zZm9ybUxpdGVyYWxUb1BhdGgoYmxvY2spO1xuXG4gICAgbGV0IHByb2dyYW0gPSBibG9jay5wcm9ncmFtLFxuICAgICAgaW52ZXJzZSA9IGJsb2NrLmludmVyc2U7XG5cbiAgICBwcm9ncmFtID0gcHJvZ3JhbSAmJiB0aGlzLmNvbXBpbGVQcm9ncmFtKHByb2dyYW0pO1xuICAgIGludmVyc2UgPSBpbnZlcnNlICYmIHRoaXMuY29tcGlsZVByb2dyYW0oaW52ZXJzZSk7XG5cbiAgICBsZXQgdHlwZSA9IHRoaXMuY2xhc3NpZnlTZXhwcihibG9jayk7XG5cbiAgICBpZiAodHlwZSA9PT0gJ2hlbHBlcicpIHtcbiAgICAgIHRoaXMuaGVscGVyU2V4cHIoYmxvY2ssIHByb2dyYW0sIGludmVyc2UpO1xuICAgIH0gZWxzZSBpZiAodHlwZSA9PT0gJ3NpbXBsZScpIHtcbiAgICAgIHRoaXMuc2ltcGxlU2V4cHIoYmxvY2spO1xuXG4gICAgICAvLyBub3cgdGhhdCB0aGUgc2ltcGxlIG11c3RhY2hlIGlzIHJlc29sdmVkLCB3ZSBuZWVkIHRvXG4gICAgICAvLyBldmFsdWF0ZSBpdCBieSBleGVjdXRpbmcgYGJsb2NrSGVscGVyTWlzc2luZ2BcbiAgICAgIHRoaXMub3Bjb2RlKCdwdXNoUHJvZ3JhbScsIHByb2dyYW0pO1xuICAgICAgdGhpcy5vcGNvZGUoJ3B1c2hQcm9ncmFtJywgaW52ZXJzZSk7XG4gICAgICB0aGlzLm9wY29kZSgnZW1wdHlIYXNoJyk7XG4gICAgICB0aGlzLm9wY29kZSgnYmxvY2tWYWx1ZScsIGJsb2NrLnBhdGgub3JpZ2luYWwpO1xuICAgIH0gZWxzZSB7XG4gICAgICB0aGlzLmFtYmlndW91c1NleHByKGJsb2NrLCBwcm9ncmFtLCBpbnZlcnNlKTtcblxuICAgICAgLy8gbm93IHRoYXQgdGhlIHNpbXBsZSBtdXN0YWNoZSBpcyByZXNvbHZlZCwgd2UgbmVlZCB0b1xuICAgICAgLy8gZXZhbHVhdGUgaXQgYnkgZXhlY3V0aW5nIGBibG9ja0hlbHBlck1pc3NpbmdgXG4gICAgICB0aGlzLm9wY29kZSgncHVzaFByb2dyYW0nLCBwcm9ncmFtKTtcbiAgICAgIHRoaXMub3Bjb2RlKCdwdXNoUHJvZ3JhbScsIGludmVyc2UpO1xuICAgICAgdGhpcy5vcGNvZGUoJ2VtcHR5SGFzaCcpO1xuICAgICAgdGhpcy5vcGNvZGUoJ2FtYmlndW91c0Jsb2NrVmFsdWUnKTtcbiAgICB9XG5cbiAgICB0aGlzLm9wY29kZSgnYXBwZW5kJyk7XG4gIH0sXG5cbiAgRGVjb3JhdG9yQmxvY2soZGVjb3JhdG9yKSB7XG4gICAgbGV0IHByb2dyYW0gPSBkZWNvcmF0b3IucHJvZ3JhbSAmJiB0aGlzLmNvbXBpbGVQcm9ncmFtKGRlY29yYXRvci5wcm9ncmFtKTtcbiAgICBsZXQgcGFyYW1zID0gdGhpcy5zZXR1cEZ1bGxNdXN0YWNoZVBhcmFtcyhkZWNvcmF0b3IsIHByb2dyYW0sIHVuZGVmaW5lZCksXG4gICAgICBwYXRoID0gZGVjb3JhdG9yLnBhdGg7XG5cbiAgICB0aGlzLnVzZURlY29yYXRvcnMgPSB0cnVlO1xuICAgIHRoaXMub3Bjb2RlKCdyZWdpc3RlckRlY29yYXRvcicsIHBhcmFtcy5sZW5ndGgsIHBhdGgub3JpZ2luYWwpO1xuICB9LFxuXG4gIFBhcnRpYWxTdGF0ZW1lbnQ6IGZ1bmN0aW9uKHBhcnRpYWwpIHtcbiAgICB0aGlzLnVzZVBhcnRpYWwgPSB0cnVlO1xuXG4gICAgbGV0IHByb2dyYW0gPSBwYXJ0aWFsLnByb2dyYW07XG4gICAgaWYgKHByb2dyYW0pIHtcbiAgICAgIHByb2dyYW0gPSB0aGlzLmNvbXBpbGVQcm9ncmFtKHBhcnRpYWwucHJvZ3JhbSk7XG4gICAgfVxuXG4gICAgbGV0IHBhcmFtcyA9IHBhcnRpYWwucGFyYW1zO1xuICAgIGlmIChwYXJhbXMubGVuZ3RoID4gMSkge1xuICAgICAgdGhyb3cgbmV3IEV4Y2VwdGlvbihcbiAgICAgICAgJ1Vuc3VwcG9ydGVkIG51bWJlciBvZiBwYXJ0aWFsIGFyZ3VtZW50czogJyArIHBhcmFtcy5sZW5ndGgsXG4gICAgICAgIHBhcnRpYWxcbiAgICAgICk7XG4gICAgfSBlbHNlIGlmICghcGFyYW1zLmxlbmd0aCkge1xuICAgICAgaWYgKHRoaXMub3B0aW9ucy5leHBsaWNpdFBhcnRpYWxDb250ZXh0KSB7XG4gICAgICAgIHRoaXMub3Bjb2RlKCdwdXNoTGl0ZXJhbCcsICd1bmRlZmluZWQnKTtcbiAgICAgIH0gZWxzZSB7XG4gICAgICAgIHBhcmFtcy5wdXNoKHsgdHlwZTogJ1BhdGhFeHByZXNzaW9uJywgcGFydHM6IFtdLCBkZXB0aDogMCB9KTtcbiAgICAgIH1cbiAgICB9XG5cbiAgICBsZXQgcGFydGlhbE5hbWUgPSBwYXJ0aWFsLm5hbWUub3JpZ2luYWwsXG4gICAgICBpc0R5bmFtaWMgPSBwYXJ0aWFsLm5hbWUudHlwZSA9PT0gJ1N1YkV4cHJlc3Npb24nO1xuICAgIGlmIChpc0R5bmFtaWMpIHtcbiAgICAgIHRoaXMuYWNjZXB0KHBhcnRpYWwubmFtZSk7XG4gICAgfVxuXG4gICAgdGhpcy5zZXR1cEZ1bGxNdXN0YWNoZVBhcmFtcyhwYXJ0aWFsLCBwcm9ncmFtLCB1bmRlZmluZWQsIHRydWUpO1xuXG4gICAgbGV0IGluZGVudCA9IHBhcnRpYWwuaW5kZW50IHx8ICcnO1xuICAgIGlmICh0aGlzLm9wdGlvbnMucHJldmVudEluZGVudCAmJiBpbmRlbnQpIHtcbiAgICAgIHRoaXMub3Bjb2RlKCdhcHBlbmRDb250ZW50JywgaW5kZW50KTtcbiAgICAgIGluZGVudCA9ICcnO1xuICAgIH1cblxuICAgIHRoaXMub3Bjb2RlKCdpbnZva2VQYXJ0aWFsJywgaXNEeW5hbWljLCBwYXJ0aWFsTmFtZSwgaW5kZW50KTtcbiAgICB0aGlzLm9wY29kZSgnYXBwZW5kJyk7XG4gIH0sXG4gIFBhcnRpYWxCbG9ja1N0YXRlbWVudDogZnVuY3Rpb24ocGFydGlhbEJsb2NrKSB7XG4gICAgdGhpcy5QYXJ0aWFsU3RhdGVtZW50KHBhcnRpYWxCbG9jayk7XG4gIH0sXG5cbiAgTXVzdGFjaGVTdGF0ZW1lbnQ6IGZ1bmN0aW9uKG11c3RhY2hlKSB7XG4gICAgdGhpcy5TdWJFeHByZXNzaW9uKG11c3RhY2hlKTtcblxuICAgIGlmIChtdXN0YWNoZS5lc2NhcGVkICYmICF0aGlzLm9wdGlvbnMubm9Fc2NhcGUpIHtcbiAgICAgIHRoaXMub3Bjb2RlKCdhcHBlbmRFc2NhcGVkJyk7XG4gICAgfSBlbHNlIHtcbiAgICAgIHRoaXMub3Bjb2RlKCdhcHBlbmQnKTtcbiAgICB9XG4gIH0sXG4gIERlY29yYXRvcihkZWNvcmF0b3IpIHtcbiAgICB0aGlzLkRlY29yYXRvckJsb2NrKGRlY29yYXRvcik7XG4gIH0sXG5cbiAgQ29udGVudFN0YXRlbWVudDogZnVuY3Rpb24oY29udGVudCkge1xuICAgIGlmIChjb250ZW50LnZhbHVlKSB7XG4gICAgICB0aGlzLm9wY29kZSgnYXBwZW5kQ29udGVudCcsIGNvbnRlbnQudmFsdWUpO1xuICAgIH1cbiAgfSxcblxuICBDb21tZW50U3RhdGVtZW50OiBmdW5jdGlvbigpIHt9LFxuXG4gIFN1YkV4cHJlc3Npb246IGZ1bmN0aW9uKHNleHByKSB7XG4gICAgdHJhbnNmb3JtTGl0ZXJhbFRvUGF0aChzZXhwcik7XG4gICAgbGV0IHR5cGUgPSB0aGlzLmNsYXNzaWZ5U2V4cHIoc2V4cHIpO1xuXG4gICAgaWYgKHR5cGUgPT09ICdzaW1wbGUnKSB7XG4gICAgICB0aGlzLnNpbXBsZVNleHByKHNleHByKTtcbiAgICB9IGVsc2UgaWYgKHR5cGUgPT09ICdoZWxwZXInKSB7XG4gICAgICB0aGlzLmhlbHBlclNleHByKHNleHByKTtcbiAgICB9IGVsc2Uge1xuICAgICAgdGhpcy5hbWJpZ3VvdXNTZXhwcihzZXhwcik7XG4gICAgfVxuICB9LFxuICBhbWJpZ3VvdXNTZXhwcjogZnVuY3Rpb24oc2V4cHIsIHByb2dyYW0sIGludmVyc2UpIHtcbiAgICBsZXQgcGF0aCA9IHNleHByLnBhdGgsXG4gICAgICBuYW1lID0gcGF0aC5wYXJ0c1swXSxcbiAgICAgIGlzQmxvY2sgPSBwcm9ncmFtICE9IG51bGwgfHwgaW52ZXJzZSAhPSBudWxsO1xuXG4gICAgdGhpcy5vcGNvZGUoJ2dldENvbnRleHQnLCBwYXRoLmRlcHRoKTtcblxuICAgIHRoaXMub3Bjb2RlKCdwdXNoUHJvZ3JhbScsIHByb2dyYW0pO1xuICAgIHRoaXMub3Bjb2RlKCdwdXNoUHJvZ3JhbScsIGludmVyc2UpO1xuXG4gICAgcGF0aC5zdHJpY3QgPSB0cnVlO1xuICAgIHRoaXMuYWNjZXB0KHBhdGgpO1xuXG4gICAgdGhpcy5vcGNvZGUoJ2ludm9rZUFtYmlndW91cycsIG5hbWUsIGlzQmxvY2spO1xuICB9LFxuXG4gIHNpbXBsZVNleHByOiBmdW5jdGlvbihzZXhwcikge1xuICAgIGxldCBwYXRoID0gc2V4cHIucGF0aDtcbiAgICBwYXRoLnN0cmljdCA9IHRydWU7XG4gICAgdGhpcy5hY2NlcHQocGF0aCk7XG4gICAgdGhpcy5vcGNvZGUoJ3Jlc29sdmVQb3NzaWJsZUxhbWJkYScpO1xuICB9LFxuXG4gIGhlbHBlclNleHByOiBmdW5jdGlvbihzZXhwciwgcHJvZ3JhbSwgaW52ZXJzZSkge1xuICAgIGxldCBwYXJhbXMgPSB0aGlzLnNldHVwRnVsbE11c3RhY2hlUGFyYW1zKHNleHByLCBwcm9ncmFtLCBpbnZlcnNlKSxcbiAgICAgIHBhdGggPSBzZXhwci5wYXRoLFxuICAgICAgbmFtZSA9IHBhdGgucGFydHNbMF07XG5cbiAgICBpZiAodGhpcy5vcHRpb25zLmtub3duSGVscGVyc1tuYW1lXSkge1xuICAgICAgdGhpcy5vcGNvZGUoJ2ludm9rZUtub3duSGVscGVyJywgcGFyYW1zLmxlbmd0aCwgbmFtZSk7XG4gICAgfSBlbHNlIGlmICh0aGlzLm9wdGlvbnMua25vd25IZWxwZXJzT25seSkge1xuICAgICAgdGhyb3cgbmV3IEV4Y2VwdGlvbihcbiAgICAgICAgJ1lvdSBzcGVjaWZpZWQga25vd25IZWxwZXJzT25seSwgYnV0IHVzZWQgdGhlIHVua25vd24gaGVscGVyICcgKyBuYW1lLFxuICAgICAgICBzZXhwclxuICAgICAgKTtcbiAgICB9IGVsc2Uge1xuICAgICAgcGF0aC5zdHJpY3QgPSB0cnVlO1xuICAgICAgcGF0aC5mYWxzeSA9IHRydWU7XG5cbiAgICAgIHRoaXMuYWNjZXB0KHBhdGgpO1xuICAgICAgdGhpcy5vcGNvZGUoXG4gICAgICAgICdpbnZva2VIZWxwZXInLFxuICAgICAgICBwYXJhbXMubGVuZ3RoLFxuICAgICAgICBwYXRoLm9yaWdpbmFsLFxuICAgICAgICBBU1QuaGVscGVycy5zaW1wbGVJZChwYXRoKVxuICAgICAgKTtcbiAgICB9XG4gIH0sXG5cbiAgUGF0aEV4cHJlc3Npb246IGZ1bmN0aW9uKHBhdGgpIHtcbiAgICB0aGlzLmFkZERlcHRoKHBhdGguZGVwdGgpO1xuICAgIHRoaXMub3Bjb2RlKCdnZXRDb250ZXh0JywgcGF0aC5kZXB0aCk7XG5cbiAgICBsZXQgbmFtZSA9IHBhdGgucGFydHNbMF0sXG4gICAgICBzY29wZWQgPSBBU1QuaGVscGVycy5zY29wZWRJZChwYXRoKSxcbiAgICAgIGJsb2NrUGFyYW1JZCA9ICFwYXRoLmRlcHRoICYmICFzY29wZWQgJiYgdGhpcy5ibG9ja1BhcmFtSW5kZXgobmFtZSk7XG5cbiAgICBpZiAoYmxvY2tQYXJhbUlkKSB7XG4gICAgICB0aGlzLm9wY29kZSgnbG9va3VwQmxvY2tQYXJhbScsIGJsb2NrUGFyYW1JZCwgcGF0aC5wYXJ0cyk7XG4gICAgfSBlbHNlIGlmICghbmFtZSkge1xuICAgICAgLy8gQ29udGV4dCByZWZlcmVuY2UsIGkuZS4gYHt7Zm9vIC59fWAgb3IgYHt7Zm9vIC4ufX1gXG4gICAgICB0aGlzLm9wY29kZSgncHVzaENvbnRleHQnKTtcbiAgICB9IGVsc2UgaWYgKHBhdGguZGF0YSkge1xuICAgICAgdGhpcy5vcHRpb25zLmRhdGEgPSB0cnVlO1xuICAgICAgdGhpcy5vcGNvZGUoJ2xvb2t1cERhdGEnLCBwYXRoLmRlcHRoLCBwYXRoLnBhcnRzLCBwYXRoLnN0cmljdCk7XG4gICAgfSBlbHNlIHtcbiAgICAgIHRoaXMub3Bjb2RlKFxuICAgICAgICAnbG9va3VwT25Db250ZXh0JyxcbiAgICAgICAgcGF0aC5wYXJ0cyxcbiAgICAgICAgcGF0aC5mYWxzeSxcbiAgICAgICAgcGF0aC5zdHJpY3QsXG4gICAgICAgIHNjb3BlZFxuICAgICAgKTtcbiAgICB9XG4gIH0sXG5cbiAgU3RyaW5nTGl0ZXJhbDogZnVuY3Rpb24oc3RyaW5nKSB7XG4gICAgdGhpcy5vcGNvZGUoJ3B1c2hTdHJpbmcnLCBzdHJpbmcudmFsdWUpO1xuICB9LFxuXG4gIE51bWJlckxpdGVyYWw6IGZ1bmN0aW9uKG51bWJlcikge1xuICAgIHRoaXMub3Bjb2RlKCdwdXNoTGl0ZXJhbCcsIG51bWJlci52YWx1ZSk7XG4gIH0sXG5cbiAgQm9vbGVhbkxpdGVyYWw6IGZ1bmN0aW9uKGJvb2wpIHtcbiAgICB0aGlzLm9wY29kZSgncHVzaExpdGVyYWwnLCBib29sLnZhbHVlKTtcbiAgfSxcblxuICBVbmRlZmluZWRMaXRlcmFsOiBmdW5jdGlvbigpIHtcbiAgICB0aGlzLm9wY29kZSgncHVzaExpdGVyYWwnLCAndW5kZWZpbmVkJyk7XG4gIH0sXG5cbiAgTnVsbExpdGVyYWw6IGZ1bmN0aW9uKCkge1xuICAgIHRoaXMub3Bjb2RlKCdwdXNoTGl0ZXJhbCcsICdudWxsJyk7XG4gIH0sXG5cbiAgSGFzaDogZnVuY3Rpb24oaGFzaCkge1xuICAgIGxldCBwYWlycyA9IGhhc2gucGFpcnMsXG4gICAgICBpID0gMCxcbiAgICAgIGwgPSBwYWlycy5sZW5ndGg7XG5cbiAgICB0aGlzLm9wY29kZSgncHVzaEhhc2gnKTtcblxuICAgIGZvciAoOyBpIDwgbDsgaSsrKSB7XG4gICAgICB0aGlzLnB1c2hQYXJhbShwYWlyc1tpXS52YWx1ZSk7XG4gICAgfVxuICAgIHdoaWxlIChpLS0pIHtcbiAgICAgIHRoaXMub3Bjb2RlKCdhc3NpZ25Ub0hhc2gnLCBwYWlyc1tpXS5rZXkpO1xuICAgIH1cbiAgICB0aGlzLm9wY29kZSgncG9wSGFzaCcpO1xuICB9LFxuXG4gIC8vIEhFTFBFUlNcbiAgb3Bjb2RlOiBmdW5jdGlvbihuYW1lKSB7XG4gICAgdGhpcy5vcGNvZGVzLnB1c2goe1xuICAgICAgb3Bjb2RlOiBuYW1lLFxuICAgICAgYXJnczogc2xpY2UuY2FsbChhcmd1bWVudHMsIDEpLFxuICAgICAgbG9jOiB0aGlzLnNvdXJjZU5vZGVbMF0ubG9jXG4gICAgfSk7XG4gIH0sXG5cbiAgYWRkRGVwdGg6IGZ1bmN0aW9uKGRlcHRoKSB7XG4gICAgaWYgKCFkZXB0aCkge1xuICAgICAgcmV0dXJuO1xuICAgIH1cblxuICAgIHRoaXMudXNlRGVwdGhzID0gdHJ1ZTtcbiAgfSxcblxuICBjbGFzc2lmeVNleHByOiBmdW5jdGlvbihzZXhwcikge1xuICAgIGxldCBpc1NpbXBsZSA9IEFTVC5oZWxwZXJzLnNpbXBsZUlkKHNleHByLnBhdGgpO1xuXG4gICAgbGV0IGlzQmxvY2tQYXJhbSA9IGlzU2ltcGxlICYmICEhdGhpcy5ibG9ja1BhcmFtSW5kZXgoc2V4cHIucGF0aC5wYXJ0c1swXSk7XG5cbiAgICAvLyBhIG11c3RhY2hlIGlzIGFuIGVsaWdpYmxlIGhlbHBlciBpZjpcbiAgICAvLyAqIGl0cyBpZCBpcyBzaW1wbGUgKGEgc2luZ2xlIHBhcnQsIG5vdCBgdGhpc2Agb3IgYC4uYClcbiAgICBsZXQgaXNIZWxwZXIgPSAhaXNCbG9ja1BhcmFtICYmIEFTVC5oZWxwZXJzLmhlbHBlckV4cHJlc3Npb24oc2V4cHIpO1xuXG4gICAgLy8gaWYgYSBtdXN0YWNoZSBpcyBhbiBlbGlnaWJsZSBoZWxwZXIgYnV0IG5vdCBhIGRlZmluaXRlXG4gICAgLy8gaGVscGVyLCBpdCBpcyBhbWJpZ3VvdXMsIGFuZCB3aWxsIGJlIHJlc29sdmVkIGluIGEgbGF0ZXJcbiAgICAvLyBwYXNzIG9yIGF0IHJ1bnRpbWUuXG4gICAgbGV0IGlzRWxpZ2libGUgPSAhaXNCbG9ja1BhcmFtICYmIChpc0hlbHBlciB8fCBpc1NpbXBsZSk7XG5cbiAgICAvLyBpZiBhbWJpZ3VvdXMsIHdlIGNhbiBwb3NzaWJseSByZXNvbHZlIHRoZSBhbWJpZ3VpdHkgbm93XG4gICAgLy8gQW4gZWxpZ2libGUgaGVscGVyIGlzIG9uZSB0aGF0IGRvZXMgbm90IGhhdmUgYSBjb21wbGV4IHBhdGgsIGkuZS4gYHRoaXMuZm9vYCwgYC4uL2Zvb2AgZXRjLlxuICAgIGlmIChpc0VsaWdpYmxlICYmICFpc0hlbHBlcikge1xuICAgICAgbGV0IG5hbWUgPSBzZXhwci5wYXRoLnBhcnRzWzBdLFxuICAgICAgICBvcHRpb25zID0gdGhpcy5vcHRpb25zO1xuICAgICAgaWYgKG9wdGlvbnMua25vd25IZWxwZXJzW25hbWVdKSB7XG4gICAgICAgIGlzSGVscGVyID0gdHJ1ZTtcbiAgICAgIH0gZWxzZSBpZiAob3B0aW9ucy5rbm93bkhlbHBlcnNPbmx5KSB7XG4gICAgICAgIGlzRWxpZ2libGUgPSBmYWxzZTtcbiAgICAgIH1cbiAgICB9XG5cbiAgICBpZiAoaXNIZWxwZXIpIHtcbiAgICAgIHJldHVybiAnaGVscGVyJztcbiAgICB9IGVsc2UgaWYgKGlzRWxpZ2libGUpIHtcbiAgICAgIHJldHVybiAnYW1iaWd1b3VzJztcbiAgICB9IGVsc2Uge1xuICAgICAgcmV0dXJuICdzaW1wbGUnO1xuICAgIH1cbiAgfSxcblxuICBwdXNoUGFyYW1zOiBmdW5jdGlvbihwYXJhbXMpIHtcbiAgICBmb3IgKGxldCBpID0gMCwgbCA9IHBhcmFtcy5sZW5ndGg7IGkgPCBsOyBpKyspIHtcbiAgICAgIHRoaXMucHVzaFBhcmFtKHBhcmFtc1tpXSk7XG4gICAgfVxuICB9LFxuXG4gIHB1c2hQYXJhbTogZnVuY3Rpb24odmFsKSB7XG4gICAgbGV0IHZhbHVlID0gdmFsLnZhbHVlICE9IG51bGwgPyB2YWwudmFsdWUgOiB2YWwub3JpZ2luYWwgfHwgJyc7XG5cbiAgICBpZiAodGhpcy5zdHJpbmdQYXJhbXMpIHtcbiAgICAgIGlmICh2YWx1ZS5yZXBsYWNlKSB7XG4gICAgICAgIHZhbHVlID0gdmFsdWUucmVwbGFjZSgvXihcXC4/XFwuXFwvKSovZywgJycpLnJlcGxhY2UoL1xcLy9nLCAnLicpO1xuICAgICAgfVxuXG4gICAgICBpZiAodmFsLmRlcHRoKSB7XG4gICAgICAgIHRoaXMuYWRkRGVwdGgodmFsLmRlcHRoKTtcbiAgICAgIH1cbiAgICAgIHRoaXMub3Bjb2RlKCdnZXRDb250ZXh0JywgdmFsLmRlcHRoIHx8IDApO1xuICAgICAgdGhpcy5vcGNvZGUoJ3B1c2hTdHJpbmdQYXJhbScsIHZhbHVlLCB2YWwudHlwZSk7XG5cbiAgICAgIGlmICh2YWwudHlwZSA9PT0gJ1N1YkV4cHJlc3Npb24nKSB7XG4gICAgICAgIC8vIFN1YkV4cHJlc3Npb25zIGdldCBldmFsdWF0ZWQgYW5kIHBhc3NlZCBpblxuICAgICAgICAvLyBpbiBzdHJpbmcgcGFyYW1zIG1vZGUuXG4gICAgICAgIHRoaXMuYWNjZXB0KHZhbCk7XG4gICAgICB9XG4gICAgfSBlbHNlIHtcbiAgICAgIGlmICh0aGlzLnRyYWNrSWRzKSB7XG4gICAgICAgIGxldCBibG9ja1BhcmFtSW5kZXg7XG4gICAgICAgIGlmICh2YWwucGFydHMgJiYgIUFTVC5oZWxwZXJzLnNjb3BlZElkKHZhbCkgJiYgIXZhbC5kZXB0aCkge1xuICAgICAgICAgIGJsb2NrUGFyYW1JbmRleCA9IHRoaXMuYmxvY2tQYXJhbUluZGV4KHZhbC5wYXJ0c1swXSk7XG4gICAgICAgIH1cbiAgICAgICAgaWYgKGJsb2NrUGFyYW1JbmRleCkge1xuICAgICAgICAgIGxldCBibG9ja1BhcmFtQ2hpbGQgPSB2YWwucGFydHMuc2xpY2UoMSkuam9pbignLicpO1xuICAgICAgICAgIHRoaXMub3Bjb2RlKCdwdXNoSWQnLCAnQmxvY2tQYXJhbScsIGJsb2NrUGFyYW1JbmRleCwgYmxvY2tQYXJhbUNoaWxkKTtcbiAgICAgICAgfSBlbHNlIHtcbiAgICAgICAgICB2YWx1ZSA9IHZhbC5vcmlnaW5hbCB8fCB2YWx1ZTtcbiAgICAgICAgICBpZiAodmFsdWUucmVwbGFjZSkge1xuICAgICAgICAgICAgdmFsdWUgPSB2YWx1ZVxuICAgICAgICAgICAgICAucmVwbGFjZSgvXnRoaXMoPzpcXC58JCkvLCAnJylcbiAgICAgICAgICAgICAgLnJlcGxhY2UoL15cXC5cXC8vLCAnJylcbiAgICAgICAgICAgICAgLnJlcGxhY2UoL15cXC4kLywgJycpO1xuICAgICAgICAgIH1cblxuICAgICAgICAgIHRoaXMub3Bjb2RlKCdwdXNoSWQnLCB2YWwudHlwZSwgdmFsdWUpO1xuICAgICAgICB9XG4gICAgICB9XG4gICAgICB0aGlzLmFjY2VwdCh2YWwpO1xuICAgIH1cbiAgfSxcblxuICBzZXR1cEZ1bGxNdXN0YWNoZVBhcmFtczogZnVuY3Rpb24oc2V4cHIsIHByb2dyYW0sIGludmVyc2UsIG9taXRFbXB0eSkge1xuICAgIGxldCBwYXJhbXMgPSBzZXhwci5wYXJhbXM7XG4gICAgdGhpcy5wdXNoUGFyYW1zKHBhcmFtcyk7XG5cbiAgICB0aGlzLm9wY29kZSgncHVzaFByb2dyYW0nLCBwcm9ncmFtKTtcbiAgICB0aGlzLm9wY29kZSgncHVzaFByb2dyYW0nLCBpbnZlcnNlKTtcblxuICAgIGlmIChzZXhwci5oYXNoKSB7XG4gICAgICB0aGlzLmFjY2VwdChzZXhwci5oYXNoKTtcbiAgICB9IGVsc2Uge1xuICAgICAgdGhpcy5vcGNvZGUoJ2VtcHR5SGFzaCcsIG9taXRFbXB0eSk7XG4gICAgfVxuXG4gICAgcmV0dXJuIHBhcmFtcztcbiAgfSxcblxuICBibG9ja1BhcmFtSW5kZXg6IGZ1bmN0aW9uKG5hbWUpIHtcbiAgICBmb3IgKFxuICAgICAgbGV0IGRlcHRoID0gMCwgbGVuID0gdGhpcy5vcHRpb25zLmJsb2NrUGFyYW1zLmxlbmd0aDtcbiAgICAgIGRlcHRoIDwgbGVuO1xuICAgICAgZGVwdGgrK1xuICAgICkge1xuICAgICAgbGV0IGJsb2NrUGFyYW1zID0gdGhpcy5vcHRpb25zLmJsb2NrUGFyYW1zW2RlcHRoXSxcbiAgICAgICAgcGFyYW0gPSBibG9ja1BhcmFtcyAmJiBpbmRleE9mKGJsb2NrUGFyYW1zLCBuYW1lKTtcbiAgICAgIGlmIChibG9ja1BhcmFtcyAmJiBwYXJhbSA+PSAwKSB7XG4gICAgICAgIHJldHVybiBbZGVwdGgsIHBhcmFtXTtcbiAgICAgIH1cbiAgICB9XG4gIH1cbn07XG5cbmV4cG9ydCBmdW5jdGlvbiBwcmVjb21waWxlKGlucHV0LCBvcHRpb25zLCBlbnYpIHtcbiAgaWYgKFxuICAgIGlucHV0ID09IG51bGwgfHxcbiAgICAodHlwZW9mIGlucHV0ICE9PSAnc3RyaW5nJyAmJiBpbnB1dC50eXBlICE9PSAnUHJvZ3JhbScpXG4gICkge1xuICAgIHRocm93IG5ldyBFeGNlcHRpb24oXG4gICAgICAnWW91IG11c3QgcGFzcyBhIHN0cmluZyBvciBIYW5kbGViYXJzIEFTVCB0byBIYW5kbGViYXJzLnByZWNvbXBpbGUuIFlvdSBwYXNzZWQgJyArXG4gICAgICAgIGlucHV0XG4gICAgKTtcbiAgfVxuXG4gIG9wdGlvbnMgPSBvcHRpb25zIHx8IHt9O1xuICBpZiAoISgnZGF0YScgaW4gb3B0aW9ucykpIHtcbiAgICBvcHRpb25zLmRhdGEgPSB0cnVlO1xuICB9XG4gIGlmIChvcHRpb25zLmNvbXBhdCkge1xuICAgIG9wdGlvbnMudXNlRGVwdGhzID0gdHJ1ZTtcbiAgfVxuXG4gIGxldCBhc3QgPSBlbnYucGFyc2UoaW5wdXQsIG9wdGlvbnMpLFxuICAgIGVudmlyb25tZW50ID0gbmV3IGVudi5Db21waWxlcigpLmNvbXBpbGUoYXN0LCBvcHRpb25zKTtcbiAgcmV0dXJuIG5ldyBlbnYuSmF2YVNjcmlwdENvbXBpbGVyKCkuY29tcGlsZShlbnZpcm9ubWVudCwgb3B0aW9ucyk7XG59XG5cbmV4cG9ydCBmdW5jdGlvbiBjb21waWxlKGlucHV0LCBvcHRpb25zID0ge30sIGVudikge1xuICBpZiAoXG4gICAgaW5wdXQgPT0gbnVsbCB8fFxuICAgICh0eXBlb2YgaW5wdXQgIT09ICdzdHJpbmcnICYmIGlucHV0LnR5cGUgIT09ICdQcm9ncmFtJylcbiAgKSB7XG4gICAgdGhyb3cgbmV3IEV4Y2VwdGlvbihcbiAgICAgICdZb3UgbXVzdCBwYXNzIGEgc3RyaW5nIG9yIEhhbmRsZWJhcnMgQVNUIHRvIEhhbmRsZWJhcnMuY29tcGlsZS4gWW91IHBhc3NlZCAnICtcbiAgICAgICAgaW5wdXRcbiAgICApO1xuICB9XG5cbiAgb3B0aW9ucyA9IGV4dGVuZCh7fSwgb3B0aW9ucyk7XG4gIGlmICghKCdkYXRhJyBpbiBvcHRpb25zKSkge1xuICAgIG9wdGlvbnMuZGF0YSA9IHRydWU7XG4gIH1cbiAgaWYgKG9wdGlvbnMuY29tcGF0KSB7XG4gICAgb3B0aW9ucy51c2VEZXB0aHMgPSB0cnVlO1xuICB9XG5cbiAgbGV0IGNvbXBpbGVkO1xuXG4gIGZ1bmN0aW9uIGNvbXBpbGVJbnB1dCgpIHtcbiAgICBsZXQgYXN0ID0gZW52LnBhcnNlKGlucHV0LCBvcHRpb25zKSxcbiAgICAgIGVudmlyb25tZW50ID0gbmV3IGVudi5Db21waWxlcigpLmNvbXBpbGUoYXN0LCBvcHRpb25zKSxcbiAgICAgIHRlbXBsYXRlU3BlYyA9IG5ldyBlbnYuSmF2YVNjcmlwdENvbXBpbGVyKCkuY29tcGlsZShcbiAgICAgICAgZW52aXJvbm1lbnQsXG4gICAgICAgIG9wdGlvbnMsXG4gICAgICAgIHVuZGVmaW5lZCxcbiAgICAgICAgdHJ1ZVxuICAgICAgKTtcbiAgICByZXR1cm4gZW52LnRlbXBsYXRlKHRlbXBsYXRlU3BlYyk7XG4gIH1cblxuICAvLyBUZW1wbGF0ZSBpcyBvbmx5IGNvbXBpbGVkIG9uIGZpcnN0IHVzZSBhbmQgY2FjaGVkIGFmdGVyIHRoYXQgcG9pbnQuXG4gIGZ1bmN0aW9uIHJldChjb250ZXh0LCBleGVjT3B0aW9ucykge1xuICAgIGlmICghY29tcGlsZWQpIHtcbiAgICAgIGNvbXBpbGVkID0gY29tcGlsZUlucHV0KCk7XG4gICAgfVxuICAgIHJldHVybiBjb21waWxlZC5jYWxsKHRoaXMsIGNvbnRleHQsIGV4ZWNPcHRpb25zKTtcbiAgfVxuICByZXQuX3NldHVwID0gZnVuY3Rpb24oc2V0dXBPcHRpb25zKSB7XG4gICAgaWYgKCFjb21waWxlZCkge1xuICAgICAgY29tcGlsZWQgPSBjb21waWxlSW5wdXQoKTtcbiAgICB9XG4gICAgcmV0dXJuIGNvbXBpbGVkLl9zZXR1cChzZXR1cE9wdGlvbnMpO1xuICB9O1xuICByZXQuX2NoaWxkID0gZnVuY3Rpb24oaSwgZGF0YSwgYmxvY2tQYXJhbXMsIGRlcHRocykge1xuICAgIGlmICghY29tcGlsZWQpIHtcbiAgICAgIGNvbXBpbGVkID0gY29tcGlsZUlucHV0KCk7XG4gICAgfVxuICAgIHJldHVybiBjb21waWxlZC5fY2hpbGQoaSwgZGF0YSwgYmxvY2tQYXJhbXMsIGRlcHRocyk7XG4gIH07XG4gIHJldHVybiByZXQ7XG59XG5cbmZ1bmN0aW9uIGFyZ0VxdWFscyhhLCBiKSB7XG4gIGlmIChhID09PSBiKSB7XG4gICAgcmV0dXJuIHRydWU7XG4gIH1cblxuICBpZiAoaXNBcnJheShhKSAmJiBpc0FycmF5KGIpICYmIGEubGVuZ3RoID09PSBiLmxlbmd0aCkge1xuICAgIGZvciAobGV0IGkgPSAwOyBpIDwgYS5sZW5ndGg7IGkrKykge1xuICAgICAgaWYgKCFhcmdFcXVhbHMoYVtpXSwgYltpXSkpIHtcbiAgICAgICAgcmV0dXJuIGZhbHNlO1xuICAgICAgfVxuICAgIH1cbiAgICByZXR1cm4gdHJ1ZTtcbiAgfVxufVxuXG5mdW5jdGlvbiB0cmFuc2Zvcm1MaXRlcmFsVG9QYXRoKHNleHByKSB7XG4gIGlmICghc2V4cHIucGF0aC5wYXJ0cykge1xuICAgIGxldCBsaXRlcmFsID0gc2V4cHIucGF0aDtcbiAgICAvLyBDYXN0aW5nIHRvIHN0cmluZyBoZXJlIHRvIG1ha2UgZmFsc2UgYW5kIDAgbGl0ZXJhbCB2YWx1ZXMgcGxheSBuaWNlbHkgd2l0aCB0aGUgcmVzdFxuICAgIC8vIG9mIHRoZSBzeXN0ZW0uXG4gICAgc2V4cHIucGF0aCA9IHtcbiAgICAgIHR5cGU6ICdQYXRoRXhwcmVzc2lvbicsXG4gICAgICBkYXRhOiBmYWxzZSxcbiAgICAgIGRlcHRoOiAwLFxuICAgICAgcGFydHM6IFtsaXRlcmFsLm9yaWdpbmFsICsgJyddLFxuICAgICAgb3JpZ2luYWw6IGxpdGVyYWwub3JpZ2luYWwgKyAnJyxcbiAgICAgIGxvYzogbGl0ZXJhbC5sb2NcbiAgICB9O1xuICB9XG59XG4iXX0=
-
-
-/***/ }),
-
-/***/ 1775:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const stream_1 = __webpack_require__(2413);
-const stream_2 = __webpack_require__(1517);
-const provider_1 = __webpack_require__(6002);
-class ProviderStream extends provider_1.default {
-    constructor() {
-        super(...arguments);
-        this._reader = new stream_2.default(this._settings);
-    }
-    read(task) {
-        const root = this._getRootDirectory(task);
-        const options = this._getReaderOptions(task);
-        const source = this.api(root, task, options);
-        const destination = new stream_1.Readable({ objectMode: true, read: () => { } });
-        source
-            .once('error', (error) => destination.emit('error', error))
-            .on('data', (entry) => destination.emit('data', options.transform(entry)))
-            .once('end', () => destination.emit('end'));
-        destination
-            .once('close', () => source.destroy());
-        return destination;
-    }
-    api(root, task, options) {
-        if (task.dynamic) {
-            return this._reader.dynamic(root, options);
-        }
-        return this._reader.static(task.patterns, options);
-    }
-}
-exports.default = ProviderStream;
 
 
 /***/ }),
@@ -46314,8 +46237,8 @@ var _ = {
 };
 var util = __webpack_require__(5222);
 var cliWidth = __webpack_require__(5469);
-var stripAnsi = __webpack_require__(2090);
-var stringWidth = __webpack_require__(5892);
+var stripAnsi = __webpack_require__(4294);
+var stringWidth = __webpack_require__(1278);
 
 function height(content) {
   return content.split('\n').length;
@@ -46842,18 +46765,6 @@ module.exports = __webpack_require__(6702);
 /***/ (function(module) {
 
 module.exports = require("os");
-
-/***/ }),
-
-/***/ 2090:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-const ansiRegex = __webpack_require__(3436);
-
-module.exports = string => typeof string === 'string' ? string.replace(ansiRegex(), '') : string;
-
 
 /***/ }),
 
@@ -53653,6 +53564,201 @@ module.exports.makeDirSync = (input, options) => {
 
 /***/ }),
 
+/***/ 2376:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+var fs = __webpack_require__(5747)
+var path = __webpack_require__(5622)
+var util = __webpack_require__(1669)
+
+function Y18N (opts) {
+  // configurable options.
+  opts = opts || {}
+  this.directory = opts.directory || './locales'
+  this.updateFiles = typeof opts.updateFiles === 'boolean' ? opts.updateFiles : true
+  this.locale = opts.locale || 'en'
+  this.fallbackToLanguage = typeof opts.fallbackToLanguage === 'boolean' ? opts.fallbackToLanguage : true
+
+  // internal stuff.
+  this.cache = Object.create(null)
+  this.writeQueue = []
+}
+
+Y18N.prototype.__ = function () {
+  if (typeof arguments[0] !== 'string') {
+    return this._taggedLiteral.apply(this, arguments)
+  }
+  var args = Array.prototype.slice.call(arguments)
+  var str = args.shift()
+  var cb = function () {} // start with noop.
+
+  if (typeof args[args.length - 1] === 'function') cb = args.pop()
+  cb = cb || function () {} // noop.
+
+  if (!this.cache[this.locale]) this._readLocaleFile()
+
+  // we've observed a new string, update the language file.
+  if (!this.cache[this.locale][str] && this.updateFiles) {
+    this.cache[this.locale][str] = str
+
+    // include the current directory and locale,
+    // since these values could change before the
+    // write is performed.
+    this._enqueueWrite([this.directory, this.locale, cb])
+  } else {
+    cb()
+  }
+
+  return util.format.apply(util, [this.cache[this.locale][str] || str].concat(args))
+}
+
+Y18N.prototype._taggedLiteral = function (parts) {
+  var args = arguments
+  var str = ''
+  parts.forEach(function (part, i) {
+    var arg = args[i + 1]
+    str += part
+    if (typeof arg !== 'undefined') {
+      str += '%s'
+    }
+  })
+  return this.__.apply(null, [str].concat([].slice.call(arguments, 1)))
+}
+
+Y18N.prototype._enqueueWrite = function (work) {
+  this.writeQueue.push(work)
+  if (this.writeQueue.length === 1) this._processWriteQueue()
+}
+
+Y18N.prototype._processWriteQueue = function () {
+  var _this = this
+  var work = this.writeQueue[0]
+
+  // destructure the enqueued work.
+  var directory = work[0]
+  var locale = work[1]
+  var cb = work[2]
+
+  var languageFile = this._resolveLocaleFile(directory, locale)
+  var serializedLocale = JSON.stringify(this.cache[locale], null, 2)
+
+  fs.writeFile(languageFile, serializedLocale, 'utf-8', function (err) {
+    _this.writeQueue.shift()
+    if (_this.writeQueue.length > 0) _this._processWriteQueue()
+    cb(err)
+  })
+}
+
+Y18N.prototype._readLocaleFile = function () {
+  var localeLookup = {}
+  var languageFile = this._resolveLocaleFile(this.directory, this.locale)
+
+  try {
+    localeLookup = JSON.parse(fs.readFileSync(languageFile, 'utf-8'))
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      err.message = 'syntax error in ' + languageFile
+    }
+
+    if (err.code === 'ENOENT') localeLookup = {}
+    else throw err
+  }
+
+  this.cache[this.locale] = localeLookup
+}
+
+Y18N.prototype._resolveLocaleFile = function (directory, locale) {
+  var file = path.resolve(directory, './', locale + '.json')
+  if (this.fallbackToLanguage && !this._fileExistsSync(file) && ~locale.lastIndexOf('_')) {
+    // attempt fallback to language only
+    var languageFile = path.resolve(directory, './', locale.split('_')[0] + '.json')
+    if (this._fileExistsSync(languageFile)) file = languageFile
+  }
+  return file
+}
+
+// this only exists because fs.existsSync() "will be deprecated"
+// see https://nodejs.org/api/fs.html#fs_fs_existssync_path
+Y18N.prototype._fileExistsSync = function (file) {
+  try {
+    return fs.statSync(file).isFile()
+  } catch (err) {
+    return false
+  }
+}
+
+Y18N.prototype.__n = function () {
+  var args = Array.prototype.slice.call(arguments)
+  var singular = args.shift()
+  var plural = args.shift()
+  var quantity = args.shift()
+
+  var cb = function () {} // start with noop.
+  if (typeof args[args.length - 1] === 'function') cb = args.pop()
+
+  if (!this.cache[this.locale]) this._readLocaleFile()
+
+  var str = quantity === 1 ? singular : plural
+  if (this.cache[this.locale][singular]) {
+    str = this.cache[this.locale][singular][quantity === 1 ? 'one' : 'other']
+  }
+
+  // we've observed a new string, update the language file.
+  if (!this.cache[this.locale][singular] && this.updateFiles) {
+    this.cache[this.locale][singular] = {
+      one: singular,
+      other: plural
+    }
+
+    // include the current directory and locale,
+    // since these values could change before the
+    // write is performed.
+    this._enqueueWrite([this.directory, this.locale, cb])
+  } else {
+    cb()
+  }
+
+  // if a %d placeholder is provided, add quantity
+  // to the arguments expanded by util.format.
+  var values = [str]
+  if (~str.indexOf('%d')) values.push(quantity)
+
+  return util.format.apply(util, values.concat(args))
+}
+
+Y18N.prototype.setLocale = function (locale) {
+  this.locale = locale
+}
+
+Y18N.prototype.getLocale = function () {
+  return this.locale
+}
+
+Y18N.prototype.updateLocale = function (obj) {
+  if (!this.cache[this.locale]) this._readLocaleFile()
+
+  for (var key in obj) {
+    this.cache[this.locale][key] = obj[key]
+  }
+}
+
+module.exports = function (opts) {
+  var y18n = new Y18N(opts)
+
+  // bind all functions to y18n, so that
+  // they can be used in isolation.
+  for (var key in y18n) {
+    if (typeof y18n[key] === 'function') {
+      y18n[key] = y18n[key].bind(y18n)
+    }
+  }
+
+  return y18n
+}
+
+
+/***/ }),
+
 /***/ 2378:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -54851,31 +54957,6 @@ const compile = (ast, options = {}) => {
 };
 
 module.exports = compile;
-
-
-/***/ }),
-
-/***/ 2444:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.string = exports.stream = exports.pattern = exports.path = exports.fs = exports.errno = exports.array = void 0;
-const array = __webpack_require__(1453);
-exports.array = array;
-const errno = __webpack_require__(3115);
-exports.errno = errno;
-const fs = __webpack_require__(7043);
-exports.fs = fs;
-const path = __webpack_require__(5418);
-exports.path = path;
-const pattern = __webpack_require__(5724);
-exports.pattern = pattern;
-const stream = __webpack_require__(7042);
-exports.stream = stream;
-const string = __webpack_require__(4394);
-exports.string = string;
 
 
 /***/ }),
@@ -63352,7 +63433,7 @@ exports.pathMatch = pathMatch;
 const {promisify} = __webpack_require__(1669);
 const fs = __webpack_require__(5747);
 const path = __webpack_require__(5622);
-const fastGlob = __webpack_require__(7406);
+const fastGlob = __webpack_require__(8779);
 const gitIgnore = __webpack_require__(236);
 const slash = __webpack_require__(4184);
 
@@ -66065,21 +66146,6 @@ function () {
 
 /***/ }),
 
-/***/ 3115:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isEnoentCodeError = void 0;
-function isEnoentCodeError(error) {
-    return error.code === 'ENOENT';
-}
-exports.isEnoentCodeError = isEnoentCodeError;
-
-
-/***/ }),
-
 /***/ 3129:
 /***/ (function(module) {
 
@@ -68329,40 +68395,6 @@ function flattenUnsubscriptionErrors(errors) {
     return errors.reduce(function (errs, err) { return errs.concat((err instanceof UnsubscriptionError_1.UnsubscriptionError) ? err.errors : err); }, []);
 }
 //# sourceMappingURL=Subscription.js.map
-
-/***/ }),
-
-/***/ 3317:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const utils = __webpack_require__(2444);
-class EntryTransformer {
-    constructor(_settings) {
-        this._settings = _settings;
-    }
-    getTransformer() {
-        return (entry) => this._transform(entry);
-    }
-    _transform(entry) {
-        let filepath = entry.path;
-        if (this._settings.absolute) {
-            filepath = utils.path.makeAbsolute(this._settings.cwd, filepath);
-            filepath = utils.path.unixify(filepath);
-        }
-        if (this._settings.markDirectories && entry.dirent.isDirectory()) {
-            filepath += '/';
-        }
-        if (!this._settings.objectMode) {
-            return filepath;
-        }
-        return Object.assign(Object.assign({}, entry), { path: filepath });
-    }
-}
-exports.default = EntryTransformer;
-
 
 /***/ }),
 
@@ -70955,6 +70987,42 @@ module.exports = {
 
 /***/ }),
 
+/***/ 3375:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const stream_1 = __webpack_require__(645);
+const provider_1 = __webpack_require__(5915);
+class ProviderAsync extends provider_1.default {
+    constructor() {
+        super(...arguments);
+        this._reader = new stream_1.default(this._settings);
+    }
+    read(task) {
+        const root = this._getRootDirectory(task);
+        const options = this._getReaderOptions(task);
+        const entries = [];
+        return new Promise((resolve, reject) => {
+            const stream = this.api(root, task, options);
+            stream.once('error', reject);
+            stream.on('data', (entry) => entries.push(options.transform(entry)));
+            stream.once('end', () => resolve(entries));
+        });
+    }
+    api(root, task, options) {
+        if (task.dynamic) {
+            return this._reader.dynamic(root, options);
+        }
+        return this._reader.static(task.patterns, options);
+    }
+}
+exports.default = ProviderAsync;
+
+
+/***/ }),
+
 /***/ 3385:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -72253,24 +72321,6 @@ module.exports = ({ builder, handler }) => {
 
 /***/ }),
 
-/***/ 3436:
-/***/ (function(module) {
-
-"use strict";
-
-
-module.exports = ({onlyFirst = false} = {}) => {
-	const pattern = [
-		'[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
-		'(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))'
-	].join('|');
-
-	return new RegExp(pattern, onlyFirst ? undefined : 'g');
-};
-
-
-/***/ }),
-
 /***/ 3441:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -72293,6 +72343,171 @@ module.exports = {
 
 let Mime = __webpack_require__(6217);
 module.exports = new Mime(__webpack_require__(2460), __webpack_require__(9983));
+
+
+/***/ }),
+
+/***/ 3458:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.matchAny = exports.convertPatternsToRe = exports.makeRe = exports.getPatternParts = exports.expandBraceExpansion = exports.expandPatternsWithBraceExpansion = exports.isAffectDepthOfReadingPattern = exports.endsWithSlashGlobStar = exports.hasGlobStar = exports.getBaseDirectory = exports.isPatternRelatedToParentDirectory = exports.getPatternsOutsideCurrentDirectory = exports.getPatternsInsideCurrentDirectory = exports.getPositivePatterns = exports.getNegativePatterns = exports.isPositivePattern = exports.isNegativePattern = exports.convertToNegativePattern = exports.convertToPositivePattern = exports.isDynamicPattern = exports.isStaticPattern = void 0;
+const path = __webpack_require__(5622);
+const globParent = __webpack_require__(5763);
+const micromatch = __webpack_require__(9074);
+const GLOBSTAR = '**';
+const ESCAPE_SYMBOL = '\\';
+const COMMON_GLOB_SYMBOLS_RE = /[*?]|^!/;
+const REGEX_CHARACTER_CLASS_SYMBOLS_RE = /\[.*]/;
+const REGEX_GROUP_SYMBOLS_RE = /(?:^|[^!*+?@])\(.*\|.*\)/;
+const GLOB_EXTENSION_SYMBOLS_RE = /[!*+?@]\(.*\)/;
+const BRACE_EXPANSIONS_SYMBOLS_RE = /{.*(?:,|\.\.).*}/;
+function isStaticPattern(pattern, options = {}) {
+    return !isDynamicPattern(pattern, options);
+}
+exports.isStaticPattern = isStaticPattern;
+function isDynamicPattern(pattern, options = {}) {
+    /**
+     * A special case with an empty string is necessary for matching patterns that start with a forward slash.
+     * An empty string cannot be a dynamic pattern.
+     * For example, the pattern `/lib/*` will be spread into parts: '', 'lib', '*'.
+     */
+    if (pattern === '') {
+        return false;
+    }
+    /**
+     * When the `caseSensitiveMatch` option is disabled, all patterns must be marked as dynamic, because we cannot check
+     * filepath directly (without read directory).
+     */
+    if (options.caseSensitiveMatch === false || pattern.includes(ESCAPE_SYMBOL)) {
+        return true;
+    }
+    if (COMMON_GLOB_SYMBOLS_RE.test(pattern) || REGEX_CHARACTER_CLASS_SYMBOLS_RE.test(pattern) || REGEX_GROUP_SYMBOLS_RE.test(pattern)) {
+        return true;
+    }
+    if (options.extglob !== false && GLOB_EXTENSION_SYMBOLS_RE.test(pattern)) {
+        return true;
+    }
+    if (options.braceExpansion !== false && BRACE_EXPANSIONS_SYMBOLS_RE.test(pattern)) {
+        return true;
+    }
+    return false;
+}
+exports.isDynamicPattern = isDynamicPattern;
+function convertToPositivePattern(pattern) {
+    return isNegativePattern(pattern) ? pattern.slice(1) : pattern;
+}
+exports.convertToPositivePattern = convertToPositivePattern;
+function convertToNegativePattern(pattern) {
+    return '!' + pattern;
+}
+exports.convertToNegativePattern = convertToNegativePattern;
+function isNegativePattern(pattern) {
+    return pattern.startsWith('!') && pattern[1] !== '(';
+}
+exports.isNegativePattern = isNegativePattern;
+function isPositivePattern(pattern) {
+    return !isNegativePattern(pattern);
+}
+exports.isPositivePattern = isPositivePattern;
+function getNegativePatterns(patterns) {
+    return patterns.filter(isNegativePattern);
+}
+exports.getNegativePatterns = getNegativePatterns;
+function getPositivePatterns(patterns) {
+    return patterns.filter(isPositivePattern);
+}
+exports.getPositivePatterns = getPositivePatterns;
+/**
+ * Returns patterns that can be applied inside the current directory.
+ *
+ * @example
+ * // ['./*', '*', 'a/*']
+ * getPatternsInsideCurrentDirectory(['./*', '*', 'a/*', '../*', './../*'])
+ */
+function getPatternsInsideCurrentDirectory(patterns) {
+    return patterns.filter((pattern) => !isPatternRelatedToParentDirectory(pattern));
+}
+exports.getPatternsInsideCurrentDirectory = getPatternsInsideCurrentDirectory;
+/**
+ * Returns patterns to be expanded relative to (outside) the current directory.
+ *
+ * @example
+ * // ['../*', './../*']
+ * getPatternsInsideCurrentDirectory(['./*', '*', 'a/*', '../*', './../*'])
+ */
+function getPatternsOutsideCurrentDirectory(patterns) {
+    return patterns.filter(isPatternRelatedToParentDirectory);
+}
+exports.getPatternsOutsideCurrentDirectory = getPatternsOutsideCurrentDirectory;
+function isPatternRelatedToParentDirectory(pattern) {
+    return pattern.startsWith('..') || pattern.startsWith('./..');
+}
+exports.isPatternRelatedToParentDirectory = isPatternRelatedToParentDirectory;
+function getBaseDirectory(pattern) {
+    return globParent(pattern, { flipBackslashes: false });
+}
+exports.getBaseDirectory = getBaseDirectory;
+function hasGlobStar(pattern) {
+    return pattern.includes(GLOBSTAR);
+}
+exports.hasGlobStar = hasGlobStar;
+function endsWithSlashGlobStar(pattern) {
+    return pattern.endsWith('/' + GLOBSTAR);
+}
+exports.endsWithSlashGlobStar = endsWithSlashGlobStar;
+function isAffectDepthOfReadingPattern(pattern) {
+    const basename = path.basename(pattern);
+    return endsWithSlashGlobStar(pattern) || isStaticPattern(basename);
+}
+exports.isAffectDepthOfReadingPattern = isAffectDepthOfReadingPattern;
+function expandPatternsWithBraceExpansion(patterns) {
+    return patterns.reduce((collection, pattern) => {
+        return collection.concat(expandBraceExpansion(pattern));
+    }, []);
+}
+exports.expandPatternsWithBraceExpansion = expandPatternsWithBraceExpansion;
+function expandBraceExpansion(pattern) {
+    return micromatch.braces(pattern, {
+        expand: true,
+        nodupes: true
+    });
+}
+exports.expandBraceExpansion = expandBraceExpansion;
+function getPatternParts(pattern, options) {
+    let { parts } = micromatch.scan(pattern, Object.assign(Object.assign({}, options), { parts: true }));
+    /**
+     * The scan method returns an empty array in some cases.
+     * See micromatch/picomatch#58 for more details.
+     */
+    if (parts.length === 0) {
+        parts = [pattern];
+    }
+    /**
+     * The scan method does not return an empty part for the pattern with a forward slash.
+     * This is another part of micromatch/picomatch#58.
+     */
+    if (parts[0].startsWith('/')) {
+        parts[0] = parts[0].slice(1);
+        parts.unshift('');
+    }
+    return parts;
+}
+exports.getPatternParts = getPatternParts;
+function makeRe(pattern, options) {
+    return micromatch.makeRe(pattern, options);
+}
+exports.makeRe = makeRe;
+function convertPatternsToRe(patterns, options) {
+    return patterns.map((pattern) => makeRe(pattern, options));
+}
+exports.convertPatternsToRe = convertPatternsToRe;
+function matchAny(entry, patternsRe) {
+    return patternsRe.some((patternRe) => patternRe.test(entry));
+}
+exports.matchAny = matchAny;
 
 
 /***/ }),
@@ -75022,46 +75237,45 @@ module.exports = {
 /***/ (function(module) {
 
 "use strict";
+
 /* eslint-disable yoda */
-
-
-const isFullwidthCodePoint = codePoint => {
-	if (Number.isNaN(codePoint)) {
+module.exports = x => {
+	if (Number.isNaN(x)) {
 		return false;
 	}
 
-	// Code points are derived from:
+	// code points are derived from:
 	// http://www.unix.org/Public/UNIDATA/EastAsianWidth.txt
 	if (
-		codePoint >= 0x1100 && (
-			codePoint <= 0x115F || // Hangul Jamo
-			codePoint === 0x2329 || // LEFT-POINTING ANGLE BRACKET
-			codePoint === 0x232A || // RIGHT-POINTING ANGLE BRACKET
+		x >= 0x1100 && (
+			x <= 0x115f ||  // Hangul Jamo
+			x === 0x2329 || // LEFT-POINTING ANGLE BRACKET
+			x === 0x232a || // RIGHT-POINTING ANGLE BRACKET
 			// CJK Radicals Supplement .. Enclosed CJK Letters and Months
-			(0x2E80 <= codePoint && codePoint <= 0x3247 && codePoint !== 0x303F) ||
+			(0x2e80 <= x && x <= 0x3247 && x !== 0x303f) ||
 			// Enclosed CJK Letters and Months .. CJK Unified Ideographs Extension A
-			(0x3250 <= codePoint && codePoint <= 0x4DBF) ||
+			(0x3250 <= x && x <= 0x4dbf) ||
 			// CJK Unified Ideographs .. Yi Radicals
-			(0x4E00 <= codePoint && codePoint <= 0xA4C6) ||
+			(0x4e00 <= x && x <= 0xa4c6) ||
 			// Hangul Jamo Extended-A
-			(0xA960 <= codePoint && codePoint <= 0xA97C) ||
+			(0xa960 <= x && x <= 0xa97c) ||
 			// Hangul Syllables
-			(0xAC00 <= codePoint && codePoint <= 0xD7A3) ||
+			(0xac00 <= x && x <= 0xd7a3) ||
 			// CJK Compatibility Ideographs
-			(0xF900 <= codePoint && codePoint <= 0xFAFF) ||
+			(0xf900 <= x && x <= 0xfaff) ||
 			// Vertical Forms
-			(0xFE10 <= codePoint && codePoint <= 0xFE19) ||
+			(0xfe10 <= x && x <= 0xfe19) ||
 			// CJK Compatibility Forms .. Small Form Variants
-			(0xFE30 <= codePoint && codePoint <= 0xFE6B) ||
+			(0xfe30 <= x && x <= 0xfe6b) ||
 			// Halfwidth and Fullwidth Forms
-			(0xFF01 <= codePoint && codePoint <= 0xFF60) ||
-			(0xFFE0 <= codePoint && codePoint <= 0xFFE6) ||
+			(0xff01 <= x && x <= 0xff60) ||
+			(0xffe0 <= x && x <= 0xffe6) ||
 			// Kana Supplement
-			(0x1B000 <= codePoint && codePoint <= 0x1B001) ||
+			(0x1b000 <= x && x <= 0x1b001) ||
 			// Enclosed Ideographic Supplement
-			(0x1F200 <= codePoint && codePoint <= 0x1F251) ||
+			(0x1f200 <= x && x <= 0x1f251) ||
 			// CJK Unified Ideographs Extension B .. Tertiary Ideographic Plane
-			(0x20000 <= codePoint && codePoint <= 0x3FFFD)
+			(0x20000 <= x && x <= 0x3fffd)
 		)
 	) {
 		return true;
@@ -75069,9 +75283,6 @@ const isFullwidthCodePoint = codePoint => {
 
 	return false;
 };
-
-module.exports = isFullwidthCodePoint;
-module.exports.default = isFullwidthCodePoint;
 
 
 /***/ }),
@@ -77686,42 +77897,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 3949:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const stream_1 = __webpack_require__(1517);
-const provider_1 = __webpack_require__(6002);
-class ProviderAsync extends provider_1.default {
-    constructor() {
-        super(...arguments);
-        this._reader = new stream_1.default(this._settings);
-    }
-    read(task) {
-        const root = this._getRootDirectory(task);
-        const options = this._getReaderOptions(task);
-        const entries = [];
-        return new Promise((resolve, reject) => {
-            const stream = this.api(root, task, options);
-            stream.once('error', reject);
-            stream.on('data', (entry) => entries.push(options.transform(entry)));
-            stream.once('end', () => resolve(entries));
-        });
-    }
-    api(root, task, options) {
-        if (task.dynamic) {
-            return this._reader.dynamic(root, options);
-        }
-        return this._reader.static(task.patterns, options);
-    }
-}
-exports.default = ProviderAsync;
-
-
-/***/ }),
-
 /***/ 3958:
 /***/ (function(module) {
 
@@ -79604,53 +79779,6 @@ module.exports = exports['default'];
 
 /***/ }),
 
-/***/ 4155:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-const stripAnsi = __webpack_require__(7882);
-const isFullwidthCodePoint = __webpack_require__(9475);
-const emojiRegex = __webpack_require__(1320)();
-
-module.exports = input => {
-	input = input.replace(emojiRegex, '  ');
-
-	if (typeof input !== 'string' || input.length === 0) {
-		return 0;
-	}
-
-	input = stripAnsi(input);
-
-	let width = 0;
-
-	for (let i = 0; i < input.length; i++) {
-		const code = input.codePointAt(i);
-
-		// Ignore control characters
-		if (code <= 0x1F || (code >= 0x7F && code <= 0x9F)) {
-			continue;
-		}
-
-		// Ignore combining characters
-		if (code >= 0x300 && code <= 0x36F) {
-			continue;
-		}
-
-		// Surrogates
-		if (code > 0xFFFF) {
-			i++;
-		}
-
-		width += isFullwidthCodePoint(code) ? 2 : 1;
-	}
-
-	return width;
-};
-
-
-/***/ }),
-
 /***/ 4164:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -80660,6 +80788,18 @@ function objectToString(o) {
 /***/ (function(module) {
 
 module.exports = require("buffer");
+
+/***/ }),
+
+/***/ 4294:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const ansiRegex = __webpack_require__(6242);
+
+module.exports = string => typeof string === 'string' ? string.replace(ansiRegex(), '') : string;
+
 
 /***/ }),
 
@@ -81738,25 +81878,6 @@ function overArg(func, transform) {
 }
 
 module.exports = overArg;
-
-
-/***/ }),
-
-/***/ 4394:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isEmpty = exports.isString = void 0;
-function isString(input) {
-    return typeof input === 'string';
-}
-exports.isString = isString;
-function isEmpty(input) {
-    return input === '';
-}
-exports.isEmpty = isEmpty;
 
 
 /***/ }),
@@ -91463,6 +91584,33 @@ exports.hostReportError = hostReportError;
 
 /***/ }),
 
+/***/ 4866:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createDirentFromStats = void 0;
+class DirentFromStats {
+    constructor(name, stats) {
+        this.name = name;
+        this.isBlockDevice = stats.isBlockDevice.bind(stats);
+        this.isCharacterDevice = stats.isCharacterDevice.bind(stats);
+        this.isDirectory = stats.isDirectory.bind(stats);
+        this.isFIFO = stats.isFIFO.bind(stats);
+        this.isFile = stats.isFile.bind(stats);
+        this.isSocket = stats.isSocket.bind(stats);
+        this.isSymbolicLink = stats.isSymbolicLink.bind(stats);
+    }
+}
+function createDirentFromStats(name, stats) {
+    return new DirentFromStats(name, stats);
+}
+exports.createDirentFromStats = createDirentFromStats;
+
+
+/***/ }),
+
 /***/ 4870:
 /***/ (function(module) {
 
@@ -91952,6 +92100,36 @@ module.exports = (
       : undefined,
   channel: distTag,
 });
+
+
+/***/ }),
+
+/***/ 4932:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.splitWhen = exports.flatten = void 0;
+function flatten(items) {
+    return items.reduce((collection, item) => [].concat(collection, item), []);
+}
+exports.flatten = flatten;
+function splitWhen(items, predicate) {
+    const result = [[]];
+    let groupIndex = 0;
+    for (const item of items) {
+        if (predicate(item)) {
+            groupIndex++;
+            result[groupIndex] = [];
+        }
+        else {
+            result[groupIndex].push(item);
+        }
+    }
+    return result;
+}
+exports.splitWhen = splitWhen;
 
 
 /***/ }),
@@ -100928,7 +101106,7 @@ Object.keys(codes).forEach(function (key) {
 
 "use strict";
 
-const stringWidth = __webpack_require__(4155);
+const stringWidth = __webpack_require__(5892);
 const stripAnsi = __webpack_require__(7882);
 const ansiStyles = __webpack_require__(5813);
 
@@ -101344,6 +101522,94 @@ if (stream_module && stream_module.Transform) {
 }
 
 if (false) {}
+
+
+/***/ }),
+
+/***/ 5145:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.convertPatternGroupToTask = exports.convertPatternGroupsToTasks = exports.groupPatternsByBaseDirectory = exports.getNegativePatternsAsPositive = exports.getPositivePatterns = exports.convertPatternsToTasks = exports.generate = void 0;
+const utils = __webpack_require__(9213);
+function generate(patterns, settings) {
+    const positivePatterns = getPositivePatterns(patterns);
+    const negativePatterns = getNegativePatternsAsPositive(patterns, settings.ignore);
+    const staticPatterns = positivePatterns.filter((pattern) => utils.pattern.isStaticPattern(pattern, settings));
+    const dynamicPatterns = positivePatterns.filter((pattern) => utils.pattern.isDynamicPattern(pattern, settings));
+    const staticTasks = convertPatternsToTasks(staticPatterns, negativePatterns, /* dynamic */ false);
+    const dynamicTasks = convertPatternsToTasks(dynamicPatterns, negativePatterns, /* dynamic */ true);
+    return staticTasks.concat(dynamicTasks);
+}
+exports.generate = generate;
+/**
+ * Returns tasks grouped by basic pattern directories.
+ *
+ * Patterns that can be found inside (`./`) and outside (`../`) the current directory are handled separately.
+ * This is necessary because directory traversal starts at the base directory and goes deeper.
+ */
+function convertPatternsToTasks(positive, negative, dynamic) {
+    const tasks = [];
+    const patternsOutsideCurrentDirectory = utils.pattern.getPatternsOutsideCurrentDirectory(positive);
+    const patternsInsideCurrentDirectory = utils.pattern.getPatternsInsideCurrentDirectory(positive);
+    const outsideCurrentDirectoryGroup = groupPatternsByBaseDirectory(patternsOutsideCurrentDirectory);
+    const insideCurrentDirectoryGroup = groupPatternsByBaseDirectory(patternsInsideCurrentDirectory);
+    tasks.push(...convertPatternGroupsToTasks(outsideCurrentDirectoryGroup, [], dynamic));
+    /*
+     * For the sake of reducing future accesses to the file system, we merge all tasks within the current directory
+     * into a global task, if at least one pattern refers to the root (`.`). In this case, the global task covers the rest.
+     */
+    if ('.' in insideCurrentDirectoryGroup) {
+        tasks.push(convertPatternGroupToTask('.', patternsInsideCurrentDirectory, negative, dynamic));
+    }
+    else {
+        tasks.push(...convertPatternGroupsToTasks(insideCurrentDirectoryGroup, negative, dynamic));
+    }
+    return tasks;
+}
+exports.convertPatternsToTasks = convertPatternsToTasks;
+function getPositivePatterns(patterns) {
+    return utils.pattern.getPositivePatterns(patterns);
+}
+exports.getPositivePatterns = getPositivePatterns;
+function getNegativePatternsAsPositive(patterns, ignore) {
+    const negative = utils.pattern.getNegativePatterns(patterns).concat(ignore);
+    const positive = negative.map(utils.pattern.convertToPositivePattern);
+    return positive;
+}
+exports.getNegativePatternsAsPositive = getNegativePatternsAsPositive;
+function groupPatternsByBaseDirectory(patterns) {
+    const group = {};
+    return patterns.reduce((collection, pattern) => {
+        const base = utils.pattern.getBaseDirectory(pattern);
+        if (base in collection) {
+            collection[base].push(pattern);
+        }
+        else {
+            collection[base] = [pattern];
+        }
+        return collection;
+    }, group);
+}
+exports.groupPatternsByBaseDirectory = groupPatternsByBaseDirectory;
+function convertPatternGroupsToTasks(positive, negative, dynamic) {
+    return Object.keys(positive).map((base) => {
+        return convertPatternGroupToTask(base, positive[base], negative, dynamic);
+    });
+}
+exports.convertPatternGroupsToTasks = convertPatternGroupsToTasks;
+function convertPatternGroupToTask(base, positive, negative, dynamic) {
+    return {
+        dynamic,
+        positive,
+        negative,
+        base,
+        patterns: [].concat(positive, negative.map(utils.pattern.convertToNegativePattern))
+    };
+}
+exports.convertPatternGroupToTask = convertPatternGroupToTask;
 
 
 /***/ }),
@@ -103064,7 +103330,7 @@ module.exports = {
 /***/ 5310:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
-var stringWidth = __webpack_require__(4155)
+var stringWidth = __webpack_require__(5892)
 var stripAnsi = __webpack_require__(7882)
 var wrap = __webpack_require__(5118)
 var align = {
@@ -103624,64 +103890,6 @@ module.exports = function generate_custom(it, $keyword, $ruleType) {
   }
   return out;
 }
-
-
-/***/ }),
-
-/***/ 5320:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const utils = __webpack_require__(2444);
-class Matcher {
-    constructor(_patterns, _settings, _micromatchOptions) {
-        this._patterns = _patterns;
-        this._settings = _settings;
-        this._micromatchOptions = _micromatchOptions;
-        this._storage = [];
-        this._fillStorage();
-    }
-    _fillStorage() {
-        /**
-         * The original pattern may include `{,*,**,a/*}`, which will lead to problems with matching (unresolved level).
-         * So, before expand patterns with brace expansion into separated patterns.
-         */
-        const patterns = utils.pattern.expandPatternsWithBraceExpansion(this._patterns);
-        for (const pattern of patterns) {
-            const segments = this._getPatternSegments(pattern);
-            const sections = this._splitSegmentsIntoSections(segments);
-            this._storage.push({
-                complete: sections.length <= 1,
-                pattern,
-                segments,
-                sections
-            });
-        }
-    }
-    _getPatternSegments(pattern) {
-        const parts = utils.pattern.getPatternParts(pattern, this._micromatchOptions);
-        return parts.map((part) => {
-            const dynamic = utils.pattern.isDynamicPattern(part, this._settings);
-            if (!dynamic) {
-                return {
-                    dynamic: false,
-                    pattern: part
-                };
-            }
-            return {
-                dynamic: true,
-                pattern: part,
-                patternRe: utils.pattern.makeRe(part, this._micromatchOptions)
-            };
-        });
-    }
-    _splitSegmentsIntoSections(segments) {
-        return utils.array.splitWhen(segments, (segment) => segment.dynamic && utils.pattern.hasGlobStar(segment.pattern));
-    }
-}
-exports.default = Matcher;
 
 
 /***/ }),
@@ -104416,29 +104624,6 @@ module.exports = function isGlob(str, options) {
 
 /***/ }),
 
-/***/ 5375:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const utils = __webpack_require__(2444);
-class ErrorFilter {
-    constructor(_settings) {
-        this._settings = _settings;
-    }
-    getFilter() {
-        return (error) => this._isNonFatalError(error);
-    }
-    _isNonFatalError(error) {
-        return utils.errno.isEnoentCodeError(error) || this._settings.suppressErrors;
-    }
-}
-exports.default = ErrorFilter;
-
-
-/***/ }),
-
 /***/ 5379:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -105113,6 +105298,47 @@ module.exports = {
 
 /***/ }),
 
+/***/ 5404:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const path = __webpack_require__(5622);
+const fsStat = __webpack_require__(3231);
+const utils = __webpack_require__(9213);
+class Reader {
+    constructor(_settings) {
+        this._settings = _settings;
+        this._fsStatSettings = new fsStat.Settings({
+            followSymbolicLink: this._settings.followSymbolicLinks,
+            fs: this._settings.fs,
+            throwErrorOnBrokenSymbolicLink: this._settings.followSymbolicLinks
+        });
+    }
+    _getFullEntryPath(filepath) {
+        return path.resolve(this._settings.cwd, filepath);
+    }
+    _makeEntry(stats, pattern) {
+        const entry = {
+            name: pattern,
+            path: pattern,
+            dirent: utils.fs.createDirentFromStats(pattern, stats)
+        };
+        if (this._settings.stats) {
+            entry.stats = stats;
+        }
+        return entry;
+    }
+    _isFatalError(error) {
+        return !utils.errno.isEnoentCodeError(error) && !this._settings.suppressErrors;
+    }
+}
+exports.default = Reader;
+
+
+/***/ }),
+
 /***/ 5416:
 /***/ (function(module) {
 
@@ -105193,47 +105419,6 @@ module.exports = function rules() {
 
   return RULES;
 };
-
-
-/***/ }),
-
-/***/ 5418:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeLeadingDotSegment = exports.escape = exports.makeAbsolute = exports.unixify = void 0;
-const path = __webpack_require__(5622);
-const LEADING_DOT_SEGMENT_CHARACTERS_COUNT = 2; // ./ or .\\
-const UNESCAPED_GLOB_SYMBOLS_RE = /(\\?)([()*?[\]{|}]|^!|[!+@](?=\())/g;
-/**
- * Designed to work only with simple paths: `dir\\file`.
- */
-function unixify(filepath) {
-    return filepath.replace(/\\/g, '/');
-}
-exports.unixify = unixify;
-function makeAbsolute(cwd, filepath) {
-    return path.resolve(cwd, filepath);
-}
-exports.makeAbsolute = makeAbsolute;
-function escape(pattern) {
-    return pattern.replace(UNESCAPED_GLOB_SYMBOLS_RE, '\\$2');
-}
-exports.escape = escape;
-function removeLeadingDotSegment(entry) {
-    // We do not use `startsWith` because this is 10x slower than current implementation for some cases.
-    // eslint-disable-next-line @typescript-eslint/prefer-string-starts-ends-with
-    if (entry.charAt(0) === '.') {
-        const secondCharactery = entry.charAt(1);
-        if (secondCharactery === '/' || secondCharactery === '\\') {
-            return entry.slice(LEADING_DOT_SEGMENT_CHARACTERS_COUNT);
-        }
-    }
-    return entry;
-}
-exports.removeLeadingDotSegment = removeLeadingDotSegment;
 
 
 /***/ }),
@@ -106098,6 +106283,21 @@ function cliWidth(options) {
 
 /***/ }),
 
+/***/ 5476:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isEnoentCodeError = void 0;
+function isEnoentCodeError(error) {
+    return error.code === 'ENOENT';
+}
+exports.isEnoentCodeError = isEnoentCodeError;
+
+
+/***/ }),
+
 /***/ 5489:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -106536,6 +106736,20 @@ exports.fetchAsyncQuestionProperty = function (question, prop, answers) {
       return question;
     })
   );
+};
+
+
+/***/ }),
+
+/***/ 5543:
+/***/ (function(module) {
+
+"use strict";
+
+
+module.exports = function () {
+  // https://mths.be/emoji
+  return /\uD83C\uDFF4(?:\uDB40\uDC67\uDB40\uDC62(?:\uDB40\uDC65\uDB40\uDC6E\uDB40\uDC67|\uDB40\uDC77\uDB40\uDC6C\uDB40\uDC73|\uDB40\uDC73\uDB40\uDC63\uDB40\uDC74)\uDB40\uDC7F|\u200D\u2620\uFE0F)|\uD83D\uDC69\u200D\uD83D\uDC69\u200D(?:\uD83D\uDC66\u200D\uD83D\uDC66|\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67]))|\uD83D\uDC68(?:\u200D(?:\u2764\uFE0F\u200D(?:\uD83D\uDC8B\u200D)?\uD83D\uDC68|(?:\uD83D[\uDC68\uDC69])\u200D(?:\uD83D\uDC66\u200D\uD83D\uDC66|\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67]))|\uD83D\uDC66\u200D\uD83D\uDC66|\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67])|\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3])|(?:\uD83C[\uDFFB-\uDFFF])\u200D(?:\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3]))|\uD83D\uDC69\u200D(?:\u2764\uFE0F\u200D(?:\uD83D\uDC8B\u200D(?:\uD83D[\uDC68\uDC69])|\uD83D[\uDC68\uDC69])|\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3])|\uD83D\uDC69\u200D\uD83D\uDC66\u200D\uD83D\uDC66|(?:\uD83D\uDC41\uFE0F\u200D\uD83D\uDDE8|\uD83D\uDC69(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2695\u2696\u2708]|\uD83D\uDC68(?:(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2695\u2696\u2708]|\u200D[\u2695\u2696\u2708])|(?:(?:\u26F9|\uD83C[\uDFCB\uDFCC]|\uD83D\uDD75)\uFE0F|\uD83D\uDC6F|\uD83E[\uDD3C\uDDDE\uDDDF])\u200D[\u2640\u2642]|(?:\u26F9|\uD83C[\uDFCB\uDFCC]|\uD83D\uDD75)(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2640\u2642]|(?:\uD83C[\uDFC3\uDFC4\uDFCA]|\uD83D[\uDC6E\uDC71\uDC73\uDC77\uDC81\uDC82\uDC86\uDC87\uDE45-\uDE47\uDE4B\uDE4D\uDE4E\uDEA3\uDEB4-\uDEB6]|\uD83E[\uDD26\uDD37-\uDD39\uDD3D\uDD3E\uDDB8\uDDB9\uDDD6-\uDDDD])(?:(?:\uD83C[\uDFFB-\uDFFF])\u200D[\u2640\u2642]|\u200D[\u2640\u2642])|\uD83D\uDC69\u200D[\u2695\u2696\u2708])\uFE0F|\uD83D\uDC69\u200D\uD83D\uDC67\u200D(?:\uD83D[\uDC66\uDC67])|\uD83D\uDC69\u200D\uD83D\uDC69\u200D(?:\uD83D[\uDC66\uDC67])|\uD83D\uDC68(?:\u200D(?:(?:\uD83D[\uDC68\uDC69])\u200D(?:\uD83D[\uDC66\uDC67])|\uD83D[\uDC66\uDC67])|\uD83C[\uDFFB-\uDFFF])|\uD83C\uDFF3\uFE0F\u200D\uD83C\uDF08|\uD83D\uDC69\u200D\uD83D\uDC67|\uD83D\uDC69(?:\uD83C[\uDFFB-\uDFFF])\u200D(?:\uD83C[\uDF3E\uDF73\uDF93\uDFA4\uDFA8\uDFEB\uDFED]|\uD83D[\uDCBB\uDCBC\uDD27\uDD2C\uDE80\uDE92]|\uD83E[\uDDB0-\uDDB3])|\uD83D\uDC69\u200D\uD83D\uDC66|\uD83C\uDDF6\uD83C\uDDE6|\uD83C\uDDFD\uD83C\uDDF0|\uD83C\uDDF4\uD83C\uDDF2|\uD83D\uDC69(?:\uD83C[\uDFFB-\uDFFF])|\uD83C\uDDED(?:\uD83C[\uDDF0\uDDF2\uDDF3\uDDF7\uDDF9\uDDFA])|\uD83C\uDDEC(?:\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEE\uDDF1-\uDDF3\uDDF5-\uDDFA\uDDFC\uDDFE])|\uD83C\uDDEA(?:\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDED\uDDF7-\uDDFA])|\uD83C\uDDE8(?:\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDEE\uDDF0-\uDDF5\uDDF7\uDDFA-\uDDFF])|\uD83C\uDDF2(?:\uD83C[\uDDE6\uDDE8-\uDDED\uDDF0-\uDDFF])|\uD83C\uDDF3(?:\uD83C[\uDDE6\uDDE8\uDDEA-\uDDEC\uDDEE\uDDF1\uDDF4\uDDF5\uDDF7\uDDFA\uDDFF])|\uD83C\uDDFC(?:\uD83C[\uDDEB\uDDF8])|\uD83C\uDDFA(?:\uD83C[\uDDE6\uDDEC\uDDF2\uDDF3\uDDF8\uDDFE\uDDFF])|\uD83C\uDDF0(?:\uD83C[\uDDEA\uDDEC-\uDDEE\uDDF2\uDDF3\uDDF5\uDDF7\uDDFC\uDDFE\uDDFF])|\uD83C\uDDEF(?:\uD83C[\uDDEA\uDDF2\uDDF4\uDDF5])|\uD83C\uDDF8(?:\uD83C[\uDDE6-\uDDEA\uDDEC-\uDDF4\uDDF7-\uDDF9\uDDFB\uDDFD-\uDDFF])|\uD83C\uDDEE(?:\uD83C[\uDDE8-\uDDEA\uDDF1-\uDDF4\uDDF6-\uDDF9])|\uD83C\uDDFF(?:\uD83C[\uDDE6\uDDF2\uDDFC])|\uD83C\uDDEB(?:\uD83C[\uDDEE-\uDDF0\uDDF2\uDDF4\uDDF7])|\uD83C\uDDF5(?:\uD83C[\uDDE6\uDDEA-\uDDED\uDDF0-\uDDF3\uDDF7-\uDDF9\uDDFC\uDDFE])|\uD83C\uDDE9(?:\uD83C[\uDDEA\uDDEC\uDDEF\uDDF0\uDDF2\uDDF4\uDDFF])|\uD83C\uDDF9(?:\uD83C[\uDDE6\uDDE8\uDDE9\uDDEB-\uDDED\uDDEF-\uDDF4\uDDF7\uDDF9\uDDFB\uDDFC\uDDFF])|\uD83C\uDDE7(?:\uD83C[\uDDE6\uDDE7\uDDE9-\uDDEF\uDDF1-\uDDF4\uDDF6-\uDDF9\uDDFB\uDDFC\uDDFE\uDDFF])|[#\*0-9]\uFE0F\u20E3|\uD83C\uDDF1(?:\uD83C[\uDDE6-\uDDE8\uDDEE\uDDF0\uDDF7-\uDDFB\uDDFE])|\uD83C\uDDE6(?:\uD83C[\uDDE8-\uDDEC\uDDEE\uDDF1\uDDF2\uDDF4\uDDF6-\uDDFA\uDDFC\uDDFD\uDDFF])|\uD83C\uDDF7(?:\uD83C[\uDDEA\uDDF4\uDDF8\uDDFA\uDDFC])|\uD83C\uDDFB(?:\uD83C[\uDDE6\uDDE8\uDDEA\uDDEC\uDDEE\uDDF3\uDDFA])|\uD83C\uDDFE(?:\uD83C[\uDDEA\uDDF9])|(?:\uD83C[\uDFC3\uDFC4\uDFCA]|\uD83D[\uDC6E\uDC71\uDC73\uDC77\uDC81\uDC82\uDC86\uDC87\uDE45-\uDE47\uDE4B\uDE4D\uDE4E\uDEA3\uDEB4-\uDEB6]|\uD83E[\uDD26\uDD37-\uDD39\uDD3D\uDD3E\uDDB8\uDDB9\uDDD6-\uDDDD])(?:\uD83C[\uDFFB-\uDFFF])|(?:\u26F9|\uD83C[\uDFCB\uDFCC]|\uD83D\uDD75)(?:\uD83C[\uDFFB-\uDFFF])|(?:[\u261D\u270A-\u270D]|\uD83C[\uDF85\uDFC2\uDFC7]|\uD83D[\uDC42\uDC43\uDC46-\uDC50\uDC66\uDC67\uDC70\uDC72\uDC74-\uDC76\uDC78\uDC7C\uDC83\uDC85\uDCAA\uDD74\uDD7A\uDD90\uDD95\uDD96\uDE4C\uDE4F\uDEC0\uDECC]|\uD83E[\uDD18-\uDD1C\uDD1E\uDD1F\uDD30-\uDD36\uDDB5\uDDB6\uDDD1-\uDDD5])(?:\uD83C[\uDFFB-\uDFFF])|(?:[\u231A\u231B\u23E9-\u23EC\u23F0\u23F3\u25FD\u25FE\u2614\u2615\u2648-\u2653\u267F\u2693\u26A1\u26AA\u26AB\u26BD\u26BE\u26C4\u26C5\u26CE\u26D4\u26EA\u26F2\u26F3\u26F5\u26FA\u26FD\u2705\u270A\u270B\u2728\u274C\u274E\u2753-\u2755\u2757\u2795-\u2797\u27B0\u27BF\u2B1B\u2B1C\u2B50\u2B55]|\uD83C[\uDC04\uDCCF\uDD8E\uDD91-\uDD9A\uDDE6-\uDDFF\uDE01\uDE1A\uDE2F\uDE32-\uDE36\uDE38-\uDE3A\uDE50\uDE51\uDF00-\uDF20\uDF2D-\uDF35\uDF37-\uDF7C\uDF7E-\uDF93\uDFA0-\uDFCA\uDFCF-\uDFD3\uDFE0-\uDFF0\uDFF4\uDFF8-\uDFFF]|\uD83D[\uDC00-\uDC3E\uDC40\uDC42-\uDCFC\uDCFF-\uDD3D\uDD4B-\uDD4E\uDD50-\uDD67\uDD7A\uDD95\uDD96\uDDA4\uDDFB-\uDE4F\uDE80-\uDEC5\uDECC\uDED0-\uDED2\uDEEB\uDEEC\uDEF4-\uDEF9]|\uD83E[\uDD10-\uDD3A\uDD3C-\uDD3E\uDD40-\uDD45\uDD47-\uDD70\uDD73-\uDD76\uDD7A\uDD7C-\uDDA2\uDDB0-\uDDB9\uDDC0-\uDDC2\uDDD0-\uDDFF])|(?:[#\*0-9\xA9\xAE\u203C\u2049\u2122\u2139\u2194-\u2199\u21A9\u21AA\u231A\u231B\u2328\u23CF\u23E9-\u23F3\u23F8-\u23FA\u24C2\u25AA\u25AB\u25B6\u25C0\u25FB-\u25FE\u2600-\u2604\u260E\u2611\u2614\u2615\u2618\u261D\u2620\u2622\u2623\u2626\u262A\u262E\u262F\u2638-\u263A\u2640\u2642\u2648-\u2653\u265F\u2660\u2663\u2665\u2666\u2668\u267B\u267E\u267F\u2692-\u2697\u2699\u269B\u269C\u26A0\u26A1\u26AA\u26AB\u26B0\u26B1\u26BD\u26BE\u26C4\u26C5\u26C8\u26CE\u26CF\u26D1\u26D3\u26D4\u26E9\u26EA\u26F0-\u26F5\u26F7-\u26FA\u26FD\u2702\u2705\u2708-\u270D\u270F\u2712\u2714\u2716\u271D\u2721\u2728\u2733\u2734\u2744\u2747\u274C\u274E\u2753-\u2755\u2757\u2763\u2764\u2795-\u2797\u27A1\u27B0\u27BF\u2934\u2935\u2B05-\u2B07\u2B1B\u2B1C\u2B50\u2B55\u3030\u303D\u3297\u3299]|\uD83C[\uDC04\uDCCF\uDD70\uDD71\uDD7E\uDD7F\uDD8E\uDD91-\uDD9A\uDDE6-\uDDFF\uDE01\uDE02\uDE1A\uDE2F\uDE32-\uDE3A\uDE50\uDE51\uDF00-\uDF21\uDF24-\uDF93\uDF96\uDF97\uDF99-\uDF9B\uDF9E-\uDFF0\uDFF3-\uDFF5\uDFF7-\uDFFF]|\uD83D[\uDC00-\uDCFD\uDCFF-\uDD3D\uDD49-\uDD4E\uDD50-\uDD67\uDD6F\uDD70\uDD73-\uDD7A\uDD87\uDD8A-\uDD8D\uDD90\uDD95\uDD96\uDDA4\uDDA5\uDDA8\uDDB1\uDDB2\uDDBC\uDDC2-\uDDC4\uDDD1-\uDDD3\uDDDC-\uDDDE\uDDE1\uDDE3\uDDE8\uDDEF\uDDF3\uDDFA-\uDE4F\uDE80-\uDEC5\uDECB-\uDED2\uDEE0-\uDEE5\uDEE9\uDEEB\uDEEC\uDEF0\uDEF3-\uDEF9]|\uD83E[\uDD10-\uDD3A\uDD3C-\uDD3E\uDD40-\uDD45\uDD47-\uDD70\uDD73-\uDD76\uDD7A\uDD7C-\uDDA2\uDDB0-\uDDB9\uDDC0-\uDDC2\uDDD0-\uDDFF])\uFE0F|(?:[\u261D\u26F9\u270A-\u270D]|\uD83C[\uDF85\uDFC2-\uDFC4\uDFC7\uDFCA-\uDFCC]|\uD83D[\uDC42\uDC43\uDC46-\uDC50\uDC66-\uDC69\uDC6E\uDC70-\uDC78\uDC7C\uDC81-\uDC83\uDC85-\uDC87\uDCAA\uDD74\uDD75\uDD7A\uDD90\uDD95\uDD96\uDE45-\uDE47\uDE4B-\uDE4F\uDEA3\uDEB4-\uDEB6\uDEC0\uDECC]|\uD83E[\uDD18-\uDD1C\uDD1E\uDD1F\uDD26\uDD30-\uDD39\uDD3D\uDD3E\uDDB5\uDDB6\uDDB8\uDDB9\uDDD1-\uDDDD])/g;
 };
 
 
@@ -123787,201 +124001,6 @@ module.exports = {
 
 /***/ }),
 
-/***/ 5558:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-var fs = __webpack_require__(5747)
-var path = __webpack_require__(5622)
-var util = __webpack_require__(1669)
-
-function Y18N (opts) {
-  // configurable options.
-  opts = opts || {}
-  this.directory = opts.directory || './locales'
-  this.updateFiles = typeof opts.updateFiles === 'boolean' ? opts.updateFiles : true
-  this.locale = opts.locale || 'en'
-  this.fallbackToLanguage = typeof opts.fallbackToLanguage === 'boolean' ? opts.fallbackToLanguage : true
-
-  // internal stuff.
-  this.cache = Object.create(null)
-  this.writeQueue = []
-}
-
-Y18N.prototype.__ = function () {
-  if (typeof arguments[0] !== 'string') {
-    return this._taggedLiteral.apply(this, arguments)
-  }
-  var args = Array.prototype.slice.call(arguments)
-  var str = args.shift()
-  var cb = function () {} // start with noop.
-
-  if (typeof args[args.length - 1] === 'function') cb = args.pop()
-  cb = cb || function () {} // noop.
-
-  if (!this.cache[this.locale]) this._readLocaleFile()
-
-  // we've observed a new string, update the language file.
-  if (!this.cache[this.locale][str] && this.updateFiles) {
-    this.cache[this.locale][str] = str
-
-    // include the current directory and locale,
-    // since these values could change before the
-    // write is performed.
-    this._enqueueWrite([this.directory, this.locale, cb])
-  } else {
-    cb()
-  }
-
-  return util.format.apply(util, [this.cache[this.locale][str] || str].concat(args))
-}
-
-Y18N.prototype._taggedLiteral = function (parts) {
-  var args = arguments
-  var str = ''
-  parts.forEach(function (part, i) {
-    var arg = args[i + 1]
-    str += part
-    if (typeof arg !== 'undefined') {
-      str += '%s'
-    }
-  })
-  return this.__.apply(null, [str].concat([].slice.call(arguments, 1)))
-}
-
-Y18N.prototype._enqueueWrite = function (work) {
-  this.writeQueue.push(work)
-  if (this.writeQueue.length === 1) this._processWriteQueue()
-}
-
-Y18N.prototype._processWriteQueue = function () {
-  var _this = this
-  var work = this.writeQueue[0]
-
-  // destructure the enqueued work.
-  var directory = work[0]
-  var locale = work[1]
-  var cb = work[2]
-
-  var languageFile = this._resolveLocaleFile(directory, locale)
-  var serializedLocale = JSON.stringify(this.cache[locale], null, 2)
-
-  fs.writeFile(languageFile, serializedLocale, 'utf-8', function (err) {
-    _this.writeQueue.shift()
-    if (_this.writeQueue.length > 0) _this._processWriteQueue()
-    cb(err)
-  })
-}
-
-Y18N.prototype._readLocaleFile = function () {
-  var localeLookup = {}
-  var languageFile = this._resolveLocaleFile(this.directory, this.locale)
-
-  try {
-    localeLookup = JSON.parse(fs.readFileSync(languageFile, 'utf-8'))
-  } catch (err) {
-    if (err instanceof SyntaxError) {
-      err.message = 'syntax error in ' + languageFile
-    }
-
-    if (err.code === 'ENOENT') localeLookup = {}
-    else throw err
-  }
-
-  this.cache[this.locale] = localeLookup
-}
-
-Y18N.prototype._resolveLocaleFile = function (directory, locale) {
-  var file = path.resolve(directory, './', locale + '.json')
-  if (this.fallbackToLanguage && !this._fileExistsSync(file) && ~locale.lastIndexOf('_')) {
-    // attempt fallback to language only
-    var languageFile = path.resolve(directory, './', locale.split('_')[0] + '.json')
-    if (this._fileExistsSync(languageFile)) file = languageFile
-  }
-  return file
-}
-
-// this only exists because fs.existsSync() "will be deprecated"
-// see https://nodejs.org/api/fs.html#fs_fs_existssync_path
-Y18N.prototype._fileExistsSync = function (file) {
-  try {
-    return fs.statSync(file).isFile()
-  } catch (err) {
-    return false
-  }
-}
-
-Y18N.prototype.__n = function () {
-  var args = Array.prototype.slice.call(arguments)
-  var singular = args.shift()
-  var plural = args.shift()
-  var quantity = args.shift()
-
-  var cb = function () {} // start with noop.
-  if (typeof args[args.length - 1] === 'function') cb = args.pop()
-
-  if (!this.cache[this.locale]) this._readLocaleFile()
-
-  var str = quantity === 1 ? singular : plural
-  if (this.cache[this.locale][singular]) {
-    str = this.cache[this.locale][singular][quantity === 1 ? 'one' : 'other']
-  }
-
-  // we've observed a new string, update the language file.
-  if (!this.cache[this.locale][singular] && this.updateFiles) {
-    this.cache[this.locale][singular] = {
-      one: singular,
-      other: plural
-    }
-
-    // include the current directory and locale,
-    // since these values could change before the
-    // write is performed.
-    this._enqueueWrite([this.directory, this.locale, cb])
-  } else {
-    cb()
-  }
-
-  // if a %d placeholder is provided, add quantity
-  // to the arguments expanded by util.format.
-  var values = [str]
-  if (~str.indexOf('%d')) values.push(quantity)
-
-  return util.format.apply(util, values.concat(args))
-}
-
-Y18N.prototype.setLocale = function (locale) {
-  this.locale = locale
-}
-
-Y18N.prototype.getLocale = function () {
-  return this.locale
-}
-
-Y18N.prototype.updateLocale = function (obj) {
-  if (!this.cache[this.locale]) this._readLocaleFile()
-
-  for (var key in obj) {
-    this.cache[this.locale][key] = obj[key]
-  }
-}
-
-module.exports = function (opts) {
-  var y18n = new Y18N(opts)
-
-  // bind all functions to y18n, so that
-  // they can be used in isolation.
-  for (var key in y18n) {
-    if (typeof y18n[key] === 'function') {
-      y18n[key] = y18n[key].bind(y18n)
-    }
-  }
-
-  return y18n
-}
-
-
-/***/ }),
-
 /***/ 5560:
 /***/ (function(__unusedmodule, exports) {
 
@@ -128136,171 +128155,6 @@ module.exports = ExpandPrompt;
 
 /***/ }),
 
-/***/ 5724:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.matchAny = exports.convertPatternsToRe = exports.makeRe = exports.getPatternParts = exports.expandBraceExpansion = exports.expandPatternsWithBraceExpansion = exports.isAffectDepthOfReadingPattern = exports.endsWithSlashGlobStar = exports.hasGlobStar = exports.getBaseDirectory = exports.isPatternRelatedToParentDirectory = exports.getPatternsOutsideCurrentDirectory = exports.getPatternsInsideCurrentDirectory = exports.getPositivePatterns = exports.getNegativePatterns = exports.isPositivePattern = exports.isNegativePattern = exports.convertToNegativePattern = exports.convertToPositivePattern = exports.isDynamicPattern = exports.isStaticPattern = void 0;
-const path = __webpack_require__(5622);
-const globParent = __webpack_require__(5763);
-const micromatch = __webpack_require__(9074);
-const GLOBSTAR = '**';
-const ESCAPE_SYMBOL = '\\';
-const COMMON_GLOB_SYMBOLS_RE = /[*?]|^!/;
-const REGEX_CHARACTER_CLASS_SYMBOLS_RE = /\[.*]/;
-const REGEX_GROUP_SYMBOLS_RE = /(?:^|[^!*+?@])\(.*\|.*\)/;
-const GLOB_EXTENSION_SYMBOLS_RE = /[!*+?@]\(.*\)/;
-const BRACE_EXPANSIONS_SYMBOLS_RE = /{.*(?:,|\.\.).*}/;
-function isStaticPattern(pattern, options = {}) {
-    return !isDynamicPattern(pattern, options);
-}
-exports.isStaticPattern = isStaticPattern;
-function isDynamicPattern(pattern, options = {}) {
-    /**
-     * A special case with an empty string is necessary for matching patterns that start with a forward slash.
-     * An empty string cannot be a dynamic pattern.
-     * For example, the pattern `/lib/*` will be spread into parts: '', 'lib', '*'.
-     */
-    if (pattern === '') {
-        return false;
-    }
-    /**
-     * When the `caseSensitiveMatch` option is disabled, all patterns must be marked as dynamic, because we cannot check
-     * filepath directly (without read directory).
-     */
-    if (options.caseSensitiveMatch === false || pattern.includes(ESCAPE_SYMBOL)) {
-        return true;
-    }
-    if (COMMON_GLOB_SYMBOLS_RE.test(pattern) || REGEX_CHARACTER_CLASS_SYMBOLS_RE.test(pattern) || REGEX_GROUP_SYMBOLS_RE.test(pattern)) {
-        return true;
-    }
-    if (options.extglob !== false && GLOB_EXTENSION_SYMBOLS_RE.test(pattern)) {
-        return true;
-    }
-    if (options.braceExpansion !== false && BRACE_EXPANSIONS_SYMBOLS_RE.test(pattern)) {
-        return true;
-    }
-    return false;
-}
-exports.isDynamicPattern = isDynamicPattern;
-function convertToPositivePattern(pattern) {
-    return isNegativePattern(pattern) ? pattern.slice(1) : pattern;
-}
-exports.convertToPositivePattern = convertToPositivePattern;
-function convertToNegativePattern(pattern) {
-    return '!' + pattern;
-}
-exports.convertToNegativePattern = convertToNegativePattern;
-function isNegativePattern(pattern) {
-    return pattern.startsWith('!') && pattern[1] !== '(';
-}
-exports.isNegativePattern = isNegativePattern;
-function isPositivePattern(pattern) {
-    return !isNegativePattern(pattern);
-}
-exports.isPositivePattern = isPositivePattern;
-function getNegativePatterns(patterns) {
-    return patterns.filter(isNegativePattern);
-}
-exports.getNegativePatterns = getNegativePatterns;
-function getPositivePatterns(patterns) {
-    return patterns.filter(isPositivePattern);
-}
-exports.getPositivePatterns = getPositivePatterns;
-/**
- * Returns patterns that can be applied inside the current directory.
- *
- * @example
- * // ['./*', '*', 'a/*']
- * getPatternsInsideCurrentDirectory(['./*', '*', 'a/*', '../*', './../*'])
- */
-function getPatternsInsideCurrentDirectory(patterns) {
-    return patterns.filter((pattern) => !isPatternRelatedToParentDirectory(pattern));
-}
-exports.getPatternsInsideCurrentDirectory = getPatternsInsideCurrentDirectory;
-/**
- * Returns patterns to be expanded relative to (outside) the current directory.
- *
- * @example
- * // ['../*', './../*']
- * getPatternsInsideCurrentDirectory(['./*', '*', 'a/*', '../*', './../*'])
- */
-function getPatternsOutsideCurrentDirectory(patterns) {
-    return patterns.filter(isPatternRelatedToParentDirectory);
-}
-exports.getPatternsOutsideCurrentDirectory = getPatternsOutsideCurrentDirectory;
-function isPatternRelatedToParentDirectory(pattern) {
-    return pattern.startsWith('..') || pattern.startsWith('./..');
-}
-exports.isPatternRelatedToParentDirectory = isPatternRelatedToParentDirectory;
-function getBaseDirectory(pattern) {
-    return globParent(pattern, { flipBackslashes: false });
-}
-exports.getBaseDirectory = getBaseDirectory;
-function hasGlobStar(pattern) {
-    return pattern.includes(GLOBSTAR);
-}
-exports.hasGlobStar = hasGlobStar;
-function endsWithSlashGlobStar(pattern) {
-    return pattern.endsWith('/' + GLOBSTAR);
-}
-exports.endsWithSlashGlobStar = endsWithSlashGlobStar;
-function isAffectDepthOfReadingPattern(pattern) {
-    const basename = path.basename(pattern);
-    return endsWithSlashGlobStar(pattern) || isStaticPattern(basename);
-}
-exports.isAffectDepthOfReadingPattern = isAffectDepthOfReadingPattern;
-function expandPatternsWithBraceExpansion(patterns) {
-    return patterns.reduce((collection, pattern) => {
-        return collection.concat(expandBraceExpansion(pattern));
-    }, []);
-}
-exports.expandPatternsWithBraceExpansion = expandPatternsWithBraceExpansion;
-function expandBraceExpansion(pattern) {
-    return micromatch.braces(pattern, {
-        expand: true,
-        nodupes: true
-    });
-}
-exports.expandBraceExpansion = expandBraceExpansion;
-function getPatternParts(pattern, options) {
-    let { parts } = micromatch.scan(pattern, Object.assign(Object.assign({}, options), { parts: true }));
-    /**
-     * The scan method returns an empty array in some cases.
-     * See micromatch/picomatch#58 for more details.
-     */
-    if (parts.length === 0) {
-        parts = [pattern];
-    }
-    /**
-     * The scan method does not return an empty part for the pattern with a forward slash.
-     * This is another part of micromatch/picomatch#58.
-     */
-    if (parts[0].startsWith('/')) {
-        parts[0] = parts[0].slice(1);
-        parts.unshift('');
-    }
-    return parts;
-}
-exports.getPatternParts = getPatternParts;
-function makeRe(pattern, options) {
-    return micromatch.makeRe(pattern, options);
-}
-exports.makeRe = makeRe;
-function convertPatternsToRe(patterns, options) {
-    return patterns.map((pattern) => makeRe(pattern, options));
-}
-exports.convertPatternsToRe = convertPatternsToRe;
-function matchAny(entry, patternsRe) {
-    return patternsRe.some((patternRe) => patternRe.test(entry));
-}
-exports.matchAny = matchAny;
-
-
-/***/ }),
-
 /***/ 5735:
 /***/ (function(__unusedmodule, exports) {
 
@@ -131100,27 +130954,23 @@ module.exports = function isCore(x, nodeVersion) {
 
 "use strict";
 
-const stripAnsi = __webpack_require__(2090);
+const stripAnsi = __webpack_require__(797);
 const isFullwidthCodePoint = __webpack_require__(3729);
-const emojiRegex = __webpack_require__(262);
+const emojiRegex = __webpack_require__(5543)();
 
-const stringWidth = string => {
-	if (typeof string !== 'string' || string.length === 0) {
+module.exports = input => {
+	input = input.replace(emojiRegex, '  ');
+
+	if (typeof input !== 'string' || input.length === 0) {
 		return 0;
 	}
 
-	string = stripAnsi(string);
-
-	if (string.length === 0) {
-		return 0;
-	}
-
-	string = string.replace(emojiRegex(), '  ');
+	input = stripAnsi(input);
 
 	let width = 0;
 
-	for (let i = 0; i < string.length; i++) {
-		const code = string.codePointAt(i);
+	for (let i = 0; i < input.length; i++) {
+		const code = input.codePointAt(i);
 
 		// Ignore control characters
 		if (code <= 0x1F || (code >= 0x7F && code <= 0x9F)) {
@@ -131142,10 +130992,6 @@ const stringWidth = string => {
 
 	return width;
 };
-
-module.exports = stringWidth;
-// TODO: remove this in the next major version
-module.exports.default = stringWidth;
 
 
 /***/ }),
@@ -131303,6 +131149,62 @@ function args (object) {
 exports.format = function formatArgv (object) {
   return options(object).concat(args(object));
 };
+
+
+/***/ }),
+
+/***/ 5915:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const path = __webpack_require__(5622);
+const deep_1 = __webpack_require__(8242);
+const entry_1 = __webpack_require__(1565);
+const error_1 = __webpack_require__(6077);
+const entry_2 = __webpack_require__(9112);
+class Provider {
+    constructor(_settings) {
+        this._settings = _settings;
+        this.errorFilter = new error_1.default(this._settings);
+        this.entryFilter = new entry_1.default(this._settings, this._getMicromatchOptions());
+        this.deepFilter = new deep_1.default(this._settings, this._getMicromatchOptions());
+        this.entryTransformer = new entry_2.default(this._settings);
+    }
+    _getRootDirectory(task) {
+        return path.resolve(this._settings.cwd, task.base);
+    }
+    _getReaderOptions(task) {
+        const basePath = task.base === '.' ? '' : task.base;
+        return {
+            basePath,
+            pathSegmentSeparator: '/',
+            concurrency: this._settings.concurrency,
+            deepFilter: this.deepFilter.getFilter(basePath, task.positive, task.negative),
+            entryFilter: this.entryFilter.getFilter(task.positive, task.negative),
+            errorFilter: this.errorFilter.getFilter(),
+            followSymbolicLinks: this._settings.followSymbolicLinks,
+            fs: this._settings.fs,
+            stats: this._settings.stats,
+            throwErrorOnBrokenSymbolicLink: this._settings.throwErrorOnBrokenSymbolicLink,
+            transform: this.entryTransformer.getTransformer()
+        };
+    }
+    _getMicromatchOptions() {
+        return {
+            dot: this._settings.dot,
+            matchBase: this._settings.baseNameMatch,
+            nobrace: !this._settings.braceExpansion,
+            nocase: !this._settings.caseSensitiveMatch,
+            noext: !this._settings.extglob,
+            noglobstar: !this._settings.globstar,
+            posix: true,
+            strictSlashes: false
+        };
+    }
+}
+exports.default = Provider;
 
 
 /***/ }),
@@ -132753,6 +132655,64 @@ function SchemaObject(obj) {
 
 /***/ }),
 
+/***/ 5965:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const utils = __webpack_require__(9213);
+class Matcher {
+    constructor(_patterns, _settings, _micromatchOptions) {
+        this._patterns = _patterns;
+        this._settings = _settings;
+        this._micromatchOptions = _micromatchOptions;
+        this._storage = [];
+        this._fillStorage();
+    }
+    _fillStorage() {
+        /**
+         * The original pattern may include `{,*,**,a/*}`, which will lead to problems with matching (unresolved level).
+         * So, before expand patterns with brace expansion into separated patterns.
+         */
+        const patterns = utils.pattern.expandPatternsWithBraceExpansion(this._patterns);
+        for (const pattern of patterns) {
+            const segments = this._getPatternSegments(pattern);
+            const sections = this._splitSegmentsIntoSections(segments);
+            this._storage.push({
+                complete: sections.length <= 1,
+                pattern,
+                segments,
+                sections
+            });
+        }
+    }
+    _getPatternSegments(pattern) {
+        const parts = utils.pattern.getPatternParts(pattern, this._micromatchOptions);
+        return parts.map((part) => {
+            const dynamic = utils.pattern.isDynamicPattern(part, this._settings);
+            if (!dynamic) {
+                return {
+                    dynamic: false,
+                    pattern: part
+                };
+            }
+            return {
+                dynamic: true,
+                pattern: part,
+                patternRe: utils.pattern.makeRe(part, this._micromatchOptions)
+            };
+        });
+    }
+    _splitSegmentsIntoSections(segments) {
+        return utils.array.splitWhen(segments, (segment) => segment.dynamic && utils.pattern.hasGlobStar(segment.pattern));
+    }
+}
+exports.default = Matcher;
+
+
+/***/ }),
+
 /***/ 5973:
 /***/ (function(module) {
 
@@ -133658,62 +133618,6 @@ convert.rgb.gray = function (rgb) {
 
 /***/ }),
 
-/***/ 6002:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const path = __webpack_require__(5622);
-const deep_1 = __webpack_require__(887);
-const entry_1 = __webpack_require__(9703);
-const error_1 = __webpack_require__(5375);
-const entry_2 = __webpack_require__(3317);
-class Provider {
-    constructor(_settings) {
-        this._settings = _settings;
-        this.errorFilter = new error_1.default(this._settings);
-        this.entryFilter = new entry_1.default(this._settings, this._getMicromatchOptions());
-        this.deepFilter = new deep_1.default(this._settings, this._getMicromatchOptions());
-        this.entryTransformer = new entry_2.default(this._settings);
-    }
-    _getRootDirectory(task) {
-        return path.resolve(this._settings.cwd, task.base);
-    }
-    _getReaderOptions(task) {
-        const basePath = task.base === '.' ? '' : task.base;
-        return {
-            basePath,
-            pathSegmentSeparator: '/',
-            concurrency: this._settings.concurrency,
-            deepFilter: this.deepFilter.getFilter(basePath, task.positive, task.negative),
-            entryFilter: this.entryFilter.getFilter(task.positive, task.negative),
-            errorFilter: this.errorFilter.getFilter(),
-            followSymbolicLinks: this._settings.followSymbolicLinks,
-            fs: this._settings.fs,
-            stats: this._settings.stats,
-            throwErrorOnBrokenSymbolicLink: this._settings.throwErrorOnBrokenSymbolicLink,
-            transform: this.entryTransformer.getTransformer()
-        };
-    }
-    _getMicromatchOptions() {
-        return {
-            dot: this._settings.dot,
-            matchBase: this._settings.baseNameMatch,
-            nobrace: !this._settings.braceExpansion,
-            nocase: !this._settings.caseSensitiveMatch,
-            noext: !this._settings.extglob,
-            noglobstar: !this._settings.globstar,
-            posix: true,
-            strictSlashes: false
-        };
-    }
-}
-exports.default = Provider;
-
-
-/***/ }),
-
 /***/ 6008:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -134549,6 +134453,29 @@ module.exports = copySync
 
 /***/ }),
 
+/***/ 6077:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const utils = __webpack_require__(9213);
+class ErrorFilter {
+    constructor(_settings) {
+        this._settings = _settings;
+    }
+    getFilter() {
+        return (error) => this._isNonFatalError(error);
+    }
+    _isNonFatalError(error) {
+        return utils.errno.isEnoentCodeError(error) || this._settings.suppressErrors;
+    }
+}
+exports.default = ErrorFilter;
+
+
+/***/ }),
+
 /***/ 6100:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -134850,6 +134777,84 @@ module.exports = async (repositoryUrl, {cwd}, branches) => {
     ],
     []
   );
+};
+
+
+/***/ }),
+
+/***/ 6159:
+/***/ (function(module) {
+
+"use strict";
+
+var singleComment = 1;
+var multiComment = 2;
+
+function stripWithoutWhitespace() {
+	return '';
+}
+
+function stripWithWhitespace(str, start, end) {
+	return str.slice(start, end).replace(/\S/g, ' ');
+}
+
+module.exports = function (str, opts) {
+	opts = opts || {};
+
+	var currentChar;
+	var nextChar;
+	var insideString = false;
+	var insideComment = false;
+	var offset = 0;
+	var ret = '';
+	var strip = opts.whitespace === false ? stripWithoutWhitespace : stripWithWhitespace;
+
+	for (var i = 0; i < str.length; i++) {
+		currentChar = str[i];
+		nextChar = str[i + 1];
+
+		if (!insideComment && currentChar === '"') {
+			var escaped = str[i - 1] === '\\' && str[i - 2] !== '\\';
+			if (!escaped) {
+				insideString = !insideString;
+			}
+		}
+
+		if (insideString) {
+			continue;
+		}
+
+		if (!insideComment && currentChar + nextChar === '//') {
+			ret += str.slice(offset, i);
+			offset = i;
+			insideComment = singleComment;
+			i++;
+		} else if (insideComment === singleComment && currentChar + nextChar === '\r\n') {
+			i++;
+			insideComment = false;
+			ret += strip(str, offset, i);
+			offset = i;
+			continue;
+		} else if (insideComment === singleComment && currentChar === '\n') {
+			insideComment = false;
+			ret += strip(str, offset, i);
+			offset = i;
+		} else if (!insideComment && currentChar + nextChar === '/*') {
+			ret += str.slice(offset, i);
+			offset = i;
+			insideComment = multiComment;
+			i++;
+			continue;
+		} else if (insideComment === multiComment && currentChar + nextChar === '*/') {
+			i++;
+			insideComment = false;
+			ret += strip(str, offset, i + 1);
+			offset = i + 1;
+			continue;
+		}
+	}
+
+	return ret + (insideComment ? strip(str.substr(offset)) : str.substr(offset));
 };
 
 
@@ -136474,6 +136479,24 @@ module.exports = function (argString) {
 
 /***/ }),
 
+/***/ 6242:
+/***/ (function(module) {
+
+"use strict";
+
+
+module.exports = ({onlyFirst = false} = {}) => {
+	const pattern = [
+		'[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)',
+		'(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))'
+	].join('|');
+
+	return new RegExp(pattern, onlyFirst ? undefined : 'g');
+};
+
+
+/***/ }),
+
 /***/ 6250:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -136926,57 +136949,6 @@ class ConfirmPrompt extends Base {
 }
 
 module.exports = ConfirmPrompt;
-
-
-/***/ }),
-
-/***/ 6265:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const fsStat = __webpack_require__(3231);
-const fsWalk = __webpack_require__(7522);
-const reader_1 = __webpack_require__(9949);
-class ReaderSync extends reader_1.default {
-    constructor() {
-        super(...arguments);
-        this._walkSync = fsWalk.walkSync;
-        this._statSync = fsStat.statSync;
-    }
-    dynamic(root, options) {
-        return this._walkSync(root, options);
-    }
-    static(patterns, options) {
-        const entries = [];
-        for (const pattern of patterns) {
-            const filepath = this._getFullEntryPath(pattern);
-            const entry = this._getEntry(filepath, pattern, options);
-            if (entry === null || !options.entryFilter(entry)) {
-                continue;
-            }
-            entries.push(entry);
-        }
-        return entries;
-    }
-    _getEntry(filepath, pattern, options) {
-        try {
-            const stats = this._getStat(filepath);
-            return this._makeEntry(stats, pattern);
-        }
-        catch (error) {
-            if (options.errorFilter(error)) {
-                return null;
-            }
-            throw error;
-        }
-    }
-    _getStat(filepath) {
-        return this._statSync(filepath, this._fsStatSettings);
-    }
-}
-exports.default = ReaderSync;
 
 
 /***/ }),
@@ -137652,71 +137624,6 @@ module.exports = {verifyConditions, addChannel, publish, success, fail};
 /***/ (function(module) {
 
 module.exports = {"$id":"cookie.json#","$schema":"http://json-schema.org/draft-06/schema#","type":"object","required":["name","value"],"properties":{"name":{"type":"string"},"value":{"type":"string"},"path":{"type":"string"},"domain":{"type":"string"},"expires":{"type":["string","null"],"format":"date-time"},"httpOnly":{"type":"boolean"},"secure":{"type":"boolean"},"comment":{"type":"string"}}};
-
-/***/ }),
-
-/***/ 6332:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_FILE_SYSTEM_ADAPTER = void 0;
-const fs = __webpack_require__(5747);
-const os = __webpack_require__(2087);
-/**
- * The `os.cpus` method can return zero. We expect the number of cores to be greater than zero.
- * https://github.com/nodejs/node/blob/7faeddf23a98c53896f8b574a6e66589e8fb1eb8/lib/os.js#L106-L107
- */
-const CPU_COUNT = Math.max(os.cpus().length, 1);
-exports.DEFAULT_FILE_SYSTEM_ADAPTER = {
-    lstat: fs.lstat,
-    lstatSync: fs.lstatSync,
-    stat: fs.stat,
-    statSync: fs.statSync,
-    readdir: fs.readdir,
-    readdirSync: fs.readdirSync
-};
-class Settings {
-    constructor(_options = {}) {
-        this._options = _options;
-        this.absolute = this._getValue(this._options.absolute, false);
-        this.baseNameMatch = this._getValue(this._options.baseNameMatch, false);
-        this.braceExpansion = this._getValue(this._options.braceExpansion, true);
-        this.caseSensitiveMatch = this._getValue(this._options.caseSensitiveMatch, true);
-        this.concurrency = this._getValue(this._options.concurrency, CPU_COUNT);
-        this.cwd = this._getValue(this._options.cwd, process.cwd());
-        this.deep = this._getValue(this._options.deep, Infinity);
-        this.dot = this._getValue(this._options.dot, false);
-        this.extglob = this._getValue(this._options.extglob, true);
-        this.followSymbolicLinks = this._getValue(this._options.followSymbolicLinks, true);
-        this.fs = this._getFileSystemMethods(this._options.fs);
-        this.globstar = this._getValue(this._options.globstar, true);
-        this.ignore = this._getValue(this._options.ignore, []);
-        this.markDirectories = this._getValue(this._options.markDirectories, false);
-        this.objectMode = this._getValue(this._options.objectMode, false);
-        this.onlyDirectories = this._getValue(this._options.onlyDirectories, false);
-        this.onlyFiles = this._getValue(this._options.onlyFiles, true);
-        this.stats = this._getValue(this._options.stats, false);
-        this.suppressErrors = this._getValue(this._options.suppressErrors, false);
-        this.throwErrorOnBrokenSymbolicLink = this._getValue(this._options.throwErrorOnBrokenSymbolicLink, false);
-        this.unique = this._getValue(this._options.unique, true);
-        if (this.onlyDirectories) {
-            this.onlyFiles = false;
-        }
-        if (this.stats) {
-            this.objectMode = true;
-        }
-    }
-    _getValue(option, value) {
-        return option === undefined ? value : option;
-    }
-    _getFileSystemMethods(methods = {}) {
-        return Object.assign(Object.assign({}, exports.DEFAULT_FILE_SYSTEM_ADAPTER), methods);
-    }
-}
-exports.default = Settings;
-
 
 /***/ }),
 
@@ -141527,6 +141434,25 @@ module.exports = move
 
 /***/ }),
 
+/***/ 6503:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.isEmpty = exports.isString = void 0;
+function isString(input) {
+    return typeof input === 'string';
+}
+exports.isString = isString;
+function isEmpty(input) {
+    return input === '';
+}
+exports.isEmpty = isEmpty;
+
+
+/***/ }),
+
 /***/ 6512:
 /***/ (function(module) {
 
@@ -141624,7 +141550,7 @@ const Parser = __webpack_require__(8290)
 const path = __webpack_require__(5622)
 const Usage = __webpack_require__(8814)
 const Validation = __webpack_require__(5253)
-const Y18n = __webpack_require__(5558)
+const Y18n = __webpack_require__(2376)
 const objFilter = __webpack_require__(9522)
 const setBlocking = __webpack_require__(7658)
 const applyExtends = __webpack_require__(5533)
@@ -149299,58 +149225,6 @@ module.exports.sync = fp => parse(fs.readFileSync(fp, 'utf8'), fp);
 
 /***/ }),
 
-/***/ 7042:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.merge = void 0;
-const merge2 = __webpack_require__(6851);
-function merge(streams) {
-    const mergedStream = merge2(streams);
-    streams.forEach((stream) => {
-        stream.once('error', (error) => mergedStream.emit('error', error));
-    });
-    mergedStream.once('close', () => propagateCloseEventToSources(streams));
-    mergedStream.once('end', () => propagateCloseEventToSources(streams));
-    return mergedStream;
-}
-exports.merge = merge;
-function propagateCloseEventToSources(streams) {
-    streams.forEach((stream) => stream.emit('close'));
-}
-
-
-/***/ }),
-
-/***/ 7043:
-/***/ (function(__unusedmodule, exports) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createDirentFromStats = void 0;
-class DirentFromStats {
-    constructor(name, stats) {
-        this.name = name;
-        this.isBlockDevice = stats.isBlockDevice.bind(stats);
-        this.isCharacterDevice = stats.isCharacterDevice.bind(stats);
-        this.isDirectory = stats.isDirectory.bind(stats);
-        this.isFIFO = stats.isFIFO.bind(stats);
-        this.isFile = stats.isFile.bind(stats);
-        this.isSocket = stats.isSocket.bind(stats);
-        this.isSymbolicLink = stats.isSymbolicLink.bind(stats);
-    }
-}
-function createDirentFromStats(name, stats) {
-    return new DirentFromStats(name, stats);
-}
-exports.createDirentFromStats = createDirentFromStats;
-
-
-/***/ }),
-
 /***/ 7054:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -153556,6 +153430,118 @@ exports.Explorer = Explorer;
 
 /***/ }),
 
+/***/ 7343:
+/***/ (function(module) {
+
+"use strict";
+ // undocumented cb() API, needed for core, not for public API
+
+function destroy(err, cb) {
+  var _this = this;
+
+  var readableDestroyed = this._readableState && this._readableState.destroyed;
+  var writableDestroyed = this._writableState && this._writableState.destroyed;
+
+  if (readableDestroyed || writableDestroyed) {
+    if (cb) {
+      cb(err);
+    } else if (err) {
+      if (!this._writableState) {
+        process.nextTick(emitErrorNT, this, err);
+      } else if (!this._writableState.errorEmitted) {
+        this._writableState.errorEmitted = true;
+        process.nextTick(emitErrorNT, this, err);
+      }
+    }
+
+    return this;
+  } // we set destroyed to true before firing error callbacks in order
+  // to make it re-entrance safe in case destroy() is called within callbacks
+
+
+  if (this._readableState) {
+    this._readableState.destroyed = true;
+  } // if this is a duplex stream mark the writable part as destroyed as well
+
+
+  if (this._writableState) {
+    this._writableState.destroyed = true;
+  }
+
+  this._destroy(err || null, function (err) {
+    if (!cb && err) {
+      if (!_this._writableState) {
+        process.nextTick(emitErrorAndCloseNT, _this, err);
+      } else if (!_this._writableState.errorEmitted) {
+        _this._writableState.errorEmitted = true;
+        process.nextTick(emitErrorAndCloseNT, _this, err);
+      } else {
+        process.nextTick(emitCloseNT, _this);
+      }
+    } else if (cb) {
+      process.nextTick(emitCloseNT, _this);
+      cb(err);
+    } else {
+      process.nextTick(emitCloseNT, _this);
+    }
+  });
+
+  return this;
+}
+
+function emitErrorAndCloseNT(self, err) {
+  emitErrorNT(self, err);
+  emitCloseNT(self);
+}
+
+function emitCloseNT(self) {
+  if (self._writableState && !self._writableState.emitClose) return;
+  if (self._readableState && !self._readableState.emitClose) return;
+  self.emit('close');
+}
+
+function undestroy() {
+  if (this._readableState) {
+    this._readableState.destroyed = false;
+    this._readableState.reading = false;
+    this._readableState.ended = false;
+    this._readableState.endEmitted = false;
+  }
+
+  if (this._writableState) {
+    this._writableState.destroyed = false;
+    this._writableState.ended = false;
+    this._writableState.ending = false;
+    this._writableState.finalCalled = false;
+    this._writableState.prefinished = false;
+    this._writableState.finished = false;
+    this._writableState.errorEmitted = false;
+  }
+}
+
+function emitErrorNT(self, err) {
+  self.emit('error', err);
+}
+
+function errorOrDestroy(stream, err) {
+  // We have tests that rely on errors being emitted
+  // in the same tick, so changing this is semver major.
+  // For now when you opt-in to autoDestroy we allow
+  // the error to be emitted nextTick. In a future
+  // semver major update we should change the default to this.
+  var rState = stream._readableState;
+  var wState = stream._writableState;
+  if (rState && rState.autoDestroy || wState && wState.autoDestroy) stream.destroy(err);else stream.emit('error', err);
+}
+
+module.exports = {
+  destroy: destroy,
+  undestroy: undestroy,
+  errorOrDestroy: errorOrDestroy
+};
+
+/***/ }),
+
 /***/ 7366:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -153957,6 +153943,52 @@ module.exports.sync = path => {
 
 /***/ }),
 
+/***/ 7380:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const matcher_1 = __webpack_require__(5965);
+class PartialMatcher extends matcher_1.default {
+    match(filepath) {
+        const parts = filepath.split('/');
+        const levels = parts.length;
+        const patterns = this._storage.filter((info) => !info.complete || info.segments.length > levels);
+        for (const pattern of patterns) {
+            const section = pattern.sections[0];
+            /**
+             * In this case, the pattern has a globstar and we must read all directories unconditionally,
+             * but only if the level has reached the end of the first group.
+             *
+             * fixtures/{a,b}/**
+             *  ^ true/false  ^ always true
+            */
+            if (!pattern.complete && levels > section.length) {
+                return true;
+            }
+            const match = parts.every((part, index) => {
+                const segment = pattern.segments[index];
+                if (segment.dynamic && segment.patternRe.test(part)) {
+                    return true;
+                }
+                if (!segment.dynamic && segment.pattern === part) {
+                    return true;
+                }
+                return false;
+            });
+            if (match) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+exports.default = PartialMatcher;
+
+
+/***/ }),
+
 /***/ 7386:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -154032,81 +154064,6 @@ for (var mod in data) { // eslint-disable-line no-restricted-syntax
     }
 }
 module.exports = core;
-
-
-/***/ }),
-
-/***/ 7406:
-/***/ (function(module, __unusedexports, __webpack_require__) {
-
-"use strict";
-
-const taskManager = __webpack_require__(9384);
-const async_1 = __webpack_require__(3949);
-const stream_1 = __webpack_require__(1775);
-const sync_1 = __webpack_require__(9078);
-const settings_1 = __webpack_require__(6332);
-const utils = __webpack_require__(2444);
-async function FastGlob(source, options) {
-    assertPatternsInput(source);
-    const works = getWorks(source, async_1.default, options);
-    const result = await Promise.all(works);
-    return utils.array.flatten(result);
-}
-// https://github.com/typescript-eslint/typescript-eslint/issues/60
-// eslint-disable-next-line no-redeclare
-(function (FastGlob) {
-    function sync(source, options) {
-        assertPatternsInput(source);
-        const works = getWorks(source, sync_1.default, options);
-        return utils.array.flatten(works);
-    }
-    FastGlob.sync = sync;
-    function stream(source, options) {
-        assertPatternsInput(source);
-        const works = getWorks(source, stream_1.default, options);
-        /**
-         * The stream returned by the provider cannot work with an asynchronous iterator.
-         * To support asynchronous iterators, regardless of the number of tasks, we always multiplex streams.
-         * This affects performance (+25%). I don't see best solution right now.
-         */
-        return utils.stream.merge(works);
-    }
-    FastGlob.stream = stream;
-    function generateTasks(source, options) {
-        assertPatternsInput(source);
-        const patterns = [].concat(source);
-        const settings = new settings_1.default(options);
-        return taskManager.generate(patterns, settings);
-    }
-    FastGlob.generateTasks = generateTasks;
-    function isDynamicPattern(source, options) {
-        assertPatternsInput(source);
-        const settings = new settings_1.default(options);
-        return utils.pattern.isDynamicPattern(source, settings);
-    }
-    FastGlob.isDynamicPattern = isDynamicPattern;
-    function escapePath(source) {
-        assertPatternsInput(source);
-        return utils.path.escape(source);
-    }
-    FastGlob.escapePath = escapePath;
-})(FastGlob || (FastGlob = {}));
-function getWorks(source, _Provider, options) {
-    const patterns = [].concat(source);
-    const settings = new settings_1.default(options);
-    const tasks = taskManager.generate(patterns, settings);
-    const provider = new _Provider(settings);
-    return tasks.map(provider.read, provider);
-}
-function assertPatternsInput(input) {
-    const source = [].concat(input);
-    const isValidSource = source.every((item) => utils.string.isString(item) && !utils.string.isEmpty(item));
-    if (!isValidSource) {
-        throw new TypeError('Patterns must be a string (non empty) or an array of strings');
-    }
-}
-module.exports = FastGlob;
 
 
 /***/ }),
@@ -156114,112 +156071,12 @@ module.exports = createReadableStreamAsyncIterator;
 /***/ 7605:
 /***/ (function(module) {
 
-"use strict";
- // undocumented cb() API, needed for core, not for public API
+var toString = {}.toString;
 
-function destroy(err, cb) {
-  var _this = this;
-
-  var readableDestroyed = this._readableState && this._readableState.destroyed;
-  var writableDestroyed = this._writableState && this._writableState.destroyed;
-
-  if (readableDestroyed || writableDestroyed) {
-    if (cb) {
-      cb(err);
-    } else if (err) {
-      if (!this._writableState) {
-        process.nextTick(emitErrorNT, this, err);
-      } else if (!this._writableState.errorEmitted) {
-        this._writableState.errorEmitted = true;
-        process.nextTick(emitErrorNT, this, err);
-      }
-    }
-
-    return this;
-  } // we set destroyed to true before firing error callbacks in order
-  // to make it re-entrance safe in case destroy() is called within callbacks
-
-
-  if (this._readableState) {
-    this._readableState.destroyed = true;
-  } // if this is a duplex stream mark the writable part as destroyed as well
-
-
-  if (this._writableState) {
-    this._writableState.destroyed = true;
-  }
-
-  this._destroy(err || null, function (err) {
-    if (!cb && err) {
-      if (!_this._writableState) {
-        process.nextTick(emitErrorAndCloseNT, _this, err);
-      } else if (!_this._writableState.errorEmitted) {
-        _this._writableState.errorEmitted = true;
-        process.nextTick(emitErrorAndCloseNT, _this, err);
-      } else {
-        process.nextTick(emitCloseNT, _this);
-      }
-    } else if (cb) {
-      process.nextTick(emitCloseNT, _this);
-      cb(err);
-    } else {
-      process.nextTick(emitCloseNT, _this);
-    }
-  });
-
-  return this;
-}
-
-function emitErrorAndCloseNT(self, err) {
-  emitErrorNT(self, err);
-  emitCloseNT(self);
-}
-
-function emitCloseNT(self) {
-  if (self._writableState && !self._writableState.emitClose) return;
-  if (self._readableState && !self._readableState.emitClose) return;
-  self.emit('close');
-}
-
-function undestroy() {
-  if (this._readableState) {
-    this._readableState.destroyed = false;
-    this._readableState.reading = false;
-    this._readableState.ended = false;
-    this._readableState.endEmitted = false;
-  }
-
-  if (this._writableState) {
-    this._writableState.destroyed = false;
-    this._writableState.ended = false;
-    this._writableState.ending = false;
-    this._writableState.finalCalled = false;
-    this._writableState.prefinished = false;
-    this._writableState.finished = false;
-    this._writableState.errorEmitted = false;
-  }
-}
-
-function emitErrorNT(self, err) {
-  self.emit('error', err);
-}
-
-function errorOrDestroy(stream, err) {
-  // We have tests that rely on errors being emitted
-  // in the same tick, so changing this is semver major.
-  // For now when you opt-in to autoDestroy we allow
-  // the error to be emitted nextTick. In a future
-  // semver major update we should change the default to this.
-  var rState = stream._readableState;
-  var wState = stream._writableState;
-  if (rState && rState.autoDestroy || wState && wState.autoDestroy) stream.destroy(err);else stream.emit('error', err);
-}
-
-module.exports = {
-  destroy: destroy,
-  undestroy: undestroy,
-  errorOrDestroy: errorOrDestroy
+module.exports = Array.isArray || function (arr) {
+  return toString.call(arr) == '[object Array]';
 };
+
 
 /***/ }),
 
@@ -160075,6 +159932,71 @@ function childrenIgnored (self, path) {
     return !!(item.gmatcher && item.gmatcher.match(path))
   })
 }
+
+
+/***/ }),
+
+/***/ 7862:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DEFAULT_FILE_SYSTEM_ADAPTER = void 0;
+const fs = __webpack_require__(5747);
+const os = __webpack_require__(2087);
+/**
+ * The `os.cpus` method can return zero. We expect the number of cores to be greater than zero.
+ * https://github.com/nodejs/node/blob/7faeddf23a98c53896f8b574a6e66589e8fb1eb8/lib/os.js#L106-L107
+ */
+const CPU_COUNT = Math.max(os.cpus().length, 1);
+exports.DEFAULT_FILE_SYSTEM_ADAPTER = {
+    lstat: fs.lstat,
+    lstatSync: fs.lstatSync,
+    stat: fs.stat,
+    statSync: fs.statSync,
+    readdir: fs.readdir,
+    readdirSync: fs.readdirSync
+};
+class Settings {
+    constructor(_options = {}) {
+        this._options = _options;
+        this.absolute = this._getValue(this._options.absolute, false);
+        this.baseNameMatch = this._getValue(this._options.baseNameMatch, false);
+        this.braceExpansion = this._getValue(this._options.braceExpansion, true);
+        this.caseSensitiveMatch = this._getValue(this._options.caseSensitiveMatch, true);
+        this.concurrency = this._getValue(this._options.concurrency, CPU_COUNT);
+        this.cwd = this._getValue(this._options.cwd, process.cwd());
+        this.deep = this._getValue(this._options.deep, Infinity);
+        this.dot = this._getValue(this._options.dot, false);
+        this.extglob = this._getValue(this._options.extglob, true);
+        this.followSymbolicLinks = this._getValue(this._options.followSymbolicLinks, true);
+        this.fs = this._getFileSystemMethods(this._options.fs);
+        this.globstar = this._getValue(this._options.globstar, true);
+        this.ignore = this._getValue(this._options.ignore, []);
+        this.markDirectories = this._getValue(this._options.markDirectories, false);
+        this.objectMode = this._getValue(this._options.objectMode, false);
+        this.onlyDirectories = this._getValue(this._options.onlyDirectories, false);
+        this.onlyFiles = this._getValue(this._options.onlyFiles, true);
+        this.stats = this._getValue(this._options.stats, false);
+        this.suppressErrors = this._getValue(this._options.suppressErrors, false);
+        this.throwErrorOnBrokenSymbolicLink = this._getValue(this._options.throwErrorOnBrokenSymbolicLink, false);
+        this.unique = this._getValue(this._options.unique, true);
+        if (this.onlyDirectories) {
+            this.onlyFiles = false;
+        }
+        if (this.stats) {
+            this.objectMode = true;
+        }
+    }
+    _getValue(option, value) {
+        return option === undefined ? value : option;
+    }
+    _getFileSystemMethods(methods = {}) {
+        return Object.assign(Object.assign({}, exports.DEFAULT_FILE_SYSTEM_ADAPTER), methods);
+    }
+}
+exports.default = Settings;
 
 
 /***/ }),
@@ -164316,6 +164238,76 @@ SafeBuffer.allocUnsafeSlow = function (size) {
   }
   return buffer.SlowBuffer(size)
 }
+
+
+/***/ }),
+
+/***/ 8242:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const utils = __webpack_require__(9213);
+const partial_1 = __webpack_require__(7380);
+class DeepFilter {
+    constructor(_settings, _micromatchOptions) {
+        this._settings = _settings;
+        this._micromatchOptions = _micromatchOptions;
+    }
+    getFilter(basePath, positive, negative) {
+        const matcher = this._getMatcher(positive);
+        const negativeRe = this._getNegativePatternsRe(negative);
+        return (entry) => this._filter(basePath, entry, matcher, negativeRe);
+    }
+    _getMatcher(patterns) {
+        return new partial_1.default(patterns, this._settings, this._micromatchOptions);
+    }
+    _getNegativePatternsRe(patterns) {
+        const affectDepthOfReadingPatterns = patterns.filter(utils.pattern.isAffectDepthOfReadingPattern);
+        return utils.pattern.convertPatternsToRe(affectDepthOfReadingPatterns, this._micromatchOptions);
+    }
+    _filter(basePath, entry, matcher, negativeRe) {
+        if (this._isSkippedByDeep(basePath, entry.path)) {
+            return false;
+        }
+        if (this._isSkippedSymbolicLink(entry)) {
+            return false;
+        }
+        const filepath = utils.path.removeLeadingDotSegment(entry.path);
+        if (this._isSkippedByPositivePatterns(filepath, matcher)) {
+            return false;
+        }
+        return this._isSkippedByNegativePatterns(filepath, negativeRe);
+    }
+    _isSkippedByDeep(basePath, entryPath) {
+        /**
+         * Avoid unnecessary depth calculations when it doesn't matter.
+         */
+        if (this._settings.deep === Infinity) {
+            return false;
+        }
+        return this._getEntryLevel(basePath, entryPath) >= this._settings.deep;
+    }
+    _getEntryLevel(basePath, entryPath) {
+        const entryPathDepth = entryPath.split('/').length;
+        if (basePath === '') {
+            return entryPathDepth;
+        }
+        const basePathDepth = basePath.split('/').length;
+        return entryPathDepth - basePathDepth;
+    }
+    _isSkippedSymbolicLink(entry) {
+        return !this._settings.followSymbolicLinks && entry.dirent.isSymbolicLink();
+    }
+    _isSkippedByPositivePatterns(entryPath, matcher) {
+        return !this._settings.baseNameMatch && !matcher.match(entryPath);
+    }
+    _isSkippedByNegativePatterns(entryPath, patternsRe) {
+        return !utils.pattern.matchAny(entryPath, patternsRe);
+    }
+}
+exports.default = DeepFilter;
 
 
 /***/ }),
@@ -169302,7 +169294,7 @@ if (debugUtil && debugUtil.debuglog) {
 
 var BufferList = __webpack_require__(3110);
 
-var destroyImpl = __webpack_require__(7605);
+var destroyImpl = __webpack_require__(7343);
 
 var _require = __webpack_require__(8295),
     getHighWaterMark = _require.getHighWaterMark;
@@ -171791,6 +171783,45 @@ function sync (commit, options) {
 
 module.exports = conventionalCommitsParser
 module.exports.sync = sync
+
+
+/***/ }),
+
+/***/ 8553:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const stream_1 = __webpack_require__(2413);
+const stream_2 = __webpack_require__(645);
+const provider_1 = __webpack_require__(5915);
+class ProviderStream extends provider_1.default {
+    constructor() {
+        super(...arguments);
+        this._reader = new stream_2.default(this._settings);
+    }
+    read(task) {
+        const root = this._getRootDirectory(task);
+        const options = this._getReaderOptions(task);
+        const source = this.api(root, task, options);
+        const destination = new stream_1.Readable({ objectMode: true, read: () => { } });
+        source
+            .once('error', (error) => destination.emit('error', error))
+            .on('data', (entry) => destination.emit('data', options.transform(entry)))
+            .once('end', () => destination.emit('end'));
+        destination
+            .once('close', () => source.destroy());
+        return destination;
+    }
+    api(root, task, options) {
+        if (task.dynamic) {
+            return this._reader.dynamic(root, options);
+        }
+        return this._reader.static(task.patterns, options);
+    }
+}
+exports.default = ProviderStream;
 
 
 /***/ }),
@@ -177698,6 +177729,81 @@ module.exports = {"$id":"creator.json#","$schema":"http://json-schema.org/draft-
 
 /***/ }),
 
+/***/ 8779:
+/***/ (function(module, __unusedexports, __webpack_require__) {
+
+"use strict";
+
+const taskManager = __webpack_require__(5145);
+const async_1 = __webpack_require__(3375);
+const stream_1 = __webpack_require__(8553);
+const sync_1 = __webpack_require__(9838);
+const settings_1 = __webpack_require__(7862);
+const utils = __webpack_require__(9213);
+async function FastGlob(source, options) {
+    assertPatternsInput(source);
+    const works = getWorks(source, async_1.default, options);
+    const result = await Promise.all(works);
+    return utils.array.flatten(result);
+}
+// https://github.com/typescript-eslint/typescript-eslint/issues/60
+// eslint-disable-next-line no-redeclare
+(function (FastGlob) {
+    function sync(source, options) {
+        assertPatternsInput(source);
+        const works = getWorks(source, sync_1.default, options);
+        return utils.array.flatten(works);
+    }
+    FastGlob.sync = sync;
+    function stream(source, options) {
+        assertPatternsInput(source);
+        const works = getWorks(source, stream_1.default, options);
+        /**
+         * The stream returned by the provider cannot work with an asynchronous iterator.
+         * To support asynchronous iterators, regardless of the number of tasks, we always multiplex streams.
+         * This affects performance (+25%). I don't see best solution right now.
+         */
+        return utils.stream.merge(works);
+    }
+    FastGlob.stream = stream;
+    function generateTasks(source, options) {
+        assertPatternsInput(source);
+        const patterns = [].concat(source);
+        const settings = new settings_1.default(options);
+        return taskManager.generate(patterns, settings);
+    }
+    FastGlob.generateTasks = generateTasks;
+    function isDynamicPattern(source, options) {
+        assertPatternsInput(source);
+        const settings = new settings_1.default(options);
+        return utils.pattern.isDynamicPattern(source, settings);
+    }
+    FastGlob.isDynamicPattern = isDynamicPattern;
+    function escapePath(source) {
+        assertPatternsInput(source);
+        return utils.path.escape(source);
+    }
+    FastGlob.escapePath = escapePath;
+})(FastGlob || (FastGlob = {}));
+function getWorks(source, _Provider, options) {
+    const patterns = [].concat(source);
+    const settings = new settings_1.default(options);
+    const tasks = taskManager.generate(patterns, settings);
+    const provider = new _Provider(settings);
+    return tasks.map(provider.read, provider);
+}
+function assertPatternsInput(input) {
+    const source = [].concat(input);
+    const isValidSource = source.every((item) => utils.string.isString(item) && !utils.string.isEmpty(item));
+    if (!isValidSource) {
+        throw new TypeError('Patterns must be a string (non empty) or an array of strings');
+    }
+}
+module.exports = FastGlob;
+
+
+/***/ }),
+
 /***/ 8780:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -179241,7 +179347,7 @@ module.exports = [["a140","",62],["a180","",32],["a240","",62],["a280",
 // this file handles outputting usage instructions,
 // failures, etc. keeps logging in one place.
 const decamelize = __webpack_require__(1010)
-const stringWidth = __webpack_require__(4155)
+const stringWidth = __webpack_require__(5892)
 const objFilter = __webpack_require__(9522)
 const path = __webpack_require__(5622)
 const setBlocking = __webpack_require__(7658)
@@ -182744,6 +182850,31 @@ module.exports = prompt
 
 /***/ }),
 
+/***/ 8894:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.merge = void 0;
+const merge2 = __webpack_require__(6851);
+function merge(streams) {
+    const mergedStream = merge2(streams);
+    streams.forEach((stream) => {
+        stream.once('error', (error) => mergedStream.emit('error', error));
+    });
+    mergedStream.once('close', () => propagateCloseEventToSources(streams));
+    mergedStream.once('end', () => propagateCloseEventToSources(streams));
+    return mergedStream;
+}
+exports.merge = merge;
+function propagateCloseEventToSources(streams) {
+    streams.forEach((stream) => stream.emit('close'));
+}
+
+
+/***/ }),
+
 /***/ 8905:
 /***/ (function(module) {
 
@@ -185537,37 +185668,6 @@ module.exports = micromatch;
 
 /***/ }),
 
-/***/ 9078:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const sync_1 = __webpack_require__(6265);
-const provider_1 = __webpack_require__(6002);
-class ProviderSync extends provider_1.default {
-    constructor() {
-        super(...arguments);
-        this._reader = new sync_1.default(this._settings);
-    }
-    read(task) {
-        const root = this._getRootDirectory(task);
-        const options = this._getReaderOptions(task);
-        const entries = this.api(root, task, options);
-        return entries.map(options.transform);
-    }
-    api(root, task, options) {
-        if (task.dynamic) {
-            return this._reader.dynamic(root, options);
-        }
-        return this._reader.static(task.patterns, options);
-    }
-}
-exports.default = ProviderSync;
-
-
-/***/ }),
-
 /***/ 9079:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -186652,6 +186752,40 @@ var WindowSubscriber = (function (_super) {
 
 /***/ }),
 
+/***/ 9112:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const utils = __webpack_require__(9213);
+class EntryTransformer {
+    constructor(_settings) {
+        this._settings = _settings;
+    }
+    getTransformer() {
+        return (entry) => this._transform(entry);
+    }
+    _transform(entry) {
+        let filepath = entry.path;
+        if (this._settings.absolute) {
+            filepath = utils.path.makeAbsolute(this._settings.cwd, filepath);
+            filepath = utils.path.unixify(filepath);
+        }
+        if (this._settings.markDirectories && entry.dirent.isDirectory()) {
+            filepath += '/';
+        }
+        if (!this._settings.objectMode) {
+            return filepath;
+        }
+        return Object.assign(Object.assign({}, entry), { path: filepath });
+    }
+}
+exports.default = EntryTransformer;
+
+
+/***/ }),
+
 /***/ 9114:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -186974,6 +187108,57 @@ var EverySubscriber = (function (_super) {
     return EverySubscriber;
 }(Subscriber_1.Subscriber));
 //# sourceMappingURL=every.js.map
+
+/***/ }),
+
+/***/ 9119:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const fsStat = __webpack_require__(3231);
+const fsWalk = __webpack_require__(7522);
+const reader_1 = __webpack_require__(5404);
+class ReaderSync extends reader_1.default {
+    constructor() {
+        super(...arguments);
+        this._walkSync = fsWalk.walkSync;
+        this._statSync = fsStat.statSync;
+    }
+    dynamic(root, options) {
+        return this._walkSync(root, options);
+    }
+    static(patterns, options) {
+        const entries = [];
+        for (const pattern of patterns) {
+            const filepath = this._getFullEntryPath(pattern);
+            const entry = this._getEntry(filepath, pattern, options);
+            if (entry === null || !options.entryFilter(entry)) {
+                continue;
+            }
+            entries.push(entry);
+        }
+        return entries;
+    }
+    _getEntry(filepath, pattern, options) {
+        try {
+            const stats = this._getStat(filepath);
+            return this._makeEntry(stats, pattern);
+        }
+        catch (error) {
+            if (options.errorFilter(error)) {
+                return null;
+            }
+            throw error;
+        }
+    }
+    _getStat(filepath) {
+        return this._statSync(filepath, this._fsStatSettings);
+    }
+}
+exports.default = ReaderSync;
+
 
 /***/ }),
 
@@ -188508,6 +188693,31 @@ function getPropertyByPath(source, path) {
   }, source);
 }
 //# sourceMappingURL=getPropertyByPath.js.map
+
+/***/ }),
+
+/***/ 9213:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.string = exports.stream = exports.pattern = exports.path = exports.fs = exports.errno = exports.array = void 0;
+const array = __webpack_require__(4932);
+exports.array = array;
+const errno = __webpack_require__(5476);
+exports.errno = errno;
+const fs = __webpack_require__(4866);
+exports.fs = fs;
+const path = __webpack_require__(1108);
+exports.path = path;
+const pattern = __webpack_require__(3458);
+exports.pattern = pattern;
+const stream = __webpack_require__(8894);
+exports.stream = stream;
+const string = __webpack_require__(6503);
+exports.string = string;
+
 
 /***/ }),
 
@@ -193431,94 +193641,6 @@ exports.permuteDomain = permuteDomain;
 
 /***/ }),
 
-/***/ 9384:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.convertPatternGroupToTask = exports.convertPatternGroupsToTasks = exports.groupPatternsByBaseDirectory = exports.getNegativePatternsAsPositive = exports.getPositivePatterns = exports.convertPatternsToTasks = exports.generate = void 0;
-const utils = __webpack_require__(2444);
-function generate(patterns, settings) {
-    const positivePatterns = getPositivePatterns(patterns);
-    const negativePatterns = getNegativePatternsAsPositive(patterns, settings.ignore);
-    const staticPatterns = positivePatterns.filter((pattern) => utils.pattern.isStaticPattern(pattern, settings));
-    const dynamicPatterns = positivePatterns.filter((pattern) => utils.pattern.isDynamicPattern(pattern, settings));
-    const staticTasks = convertPatternsToTasks(staticPatterns, negativePatterns, /* dynamic */ false);
-    const dynamicTasks = convertPatternsToTasks(dynamicPatterns, negativePatterns, /* dynamic */ true);
-    return staticTasks.concat(dynamicTasks);
-}
-exports.generate = generate;
-/**
- * Returns tasks grouped by basic pattern directories.
- *
- * Patterns that can be found inside (`./`) and outside (`../`) the current directory are handled separately.
- * This is necessary because directory traversal starts at the base directory and goes deeper.
- */
-function convertPatternsToTasks(positive, negative, dynamic) {
-    const tasks = [];
-    const patternsOutsideCurrentDirectory = utils.pattern.getPatternsOutsideCurrentDirectory(positive);
-    const patternsInsideCurrentDirectory = utils.pattern.getPatternsInsideCurrentDirectory(positive);
-    const outsideCurrentDirectoryGroup = groupPatternsByBaseDirectory(patternsOutsideCurrentDirectory);
-    const insideCurrentDirectoryGroup = groupPatternsByBaseDirectory(patternsInsideCurrentDirectory);
-    tasks.push(...convertPatternGroupsToTasks(outsideCurrentDirectoryGroup, [], dynamic));
-    /*
-     * For the sake of reducing future accesses to the file system, we merge all tasks within the current directory
-     * into a global task, if at least one pattern refers to the root (`.`). In this case, the global task covers the rest.
-     */
-    if ('.' in insideCurrentDirectoryGroup) {
-        tasks.push(convertPatternGroupToTask('.', patternsInsideCurrentDirectory, negative, dynamic));
-    }
-    else {
-        tasks.push(...convertPatternGroupsToTasks(insideCurrentDirectoryGroup, negative, dynamic));
-    }
-    return tasks;
-}
-exports.convertPatternsToTasks = convertPatternsToTasks;
-function getPositivePatterns(patterns) {
-    return utils.pattern.getPositivePatterns(patterns);
-}
-exports.getPositivePatterns = getPositivePatterns;
-function getNegativePatternsAsPositive(patterns, ignore) {
-    const negative = utils.pattern.getNegativePatterns(patterns).concat(ignore);
-    const positive = negative.map(utils.pattern.convertToPositivePattern);
-    return positive;
-}
-exports.getNegativePatternsAsPositive = getNegativePatternsAsPositive;
-function groupPatternsByBaseDirectory(patterns) {
-    const group = {};
-    return patterns.reduce((collection, pattern) => {
-        const base = utils.pattern.getBaseDirectory(pattern);
-        if (base in collection) {
-            collection[base].push(pattern);
-        }
-        else {
-            collection[base] = [pattern];
-        }
-        return collection;
-    }, group);
-}
-exports.groupPatternsByBaseDirectory = groupPatternsByBaseDirectory;
-function convertPatternGroupsToTasks(positive, negative, dynamic) {
-    return Object.keys(positive).map((base) => {
-        return convertPatternGroupToTask(base, positive[base], negative, dynamic);
-    });
-}
-exports.convertPatternGroupsToTasks = convertPatternGroupsToTasks;
-function convertPatternGroupToTask(base, positive, negative, dynamic) {
-    return {
-        dynamic,
-        positive,
-        negative,
-        base,
-        patterns: [].concat(positive, negative.map(utils.pattern.convertToNegativePattern))
-    };
-}
-exports.convertPatternGroupToTask = convertPatternGroupToTask;
-
-
-/***/ }),
-
 /***/ 9385:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -196140,45 +196262,46 @@ const create = (opt, files) => {
 /***/ (function(module) {
 
 "use strict";
-
 /* eslint-disable yoda */
-module.exports = x => {
-	if (Number.isNaN(x)) {
+
+
+const isFullwidthCodePoint = codePoint => {
+	if (Number.isNaN(codePoint)) {
 		return false;
 	}
 
-	// code points are derived from:
+	// Code points are derived from:
 	// http://www.unix.org/Public/UNIDATA/EastAsianWidth.txt
 	if (
-		x >= 0x1100 && (
-			x <= 0x115f ||  // Hangul Jamo
-			x === 0x2329 || // LEFT-POINTING ANGLE BRACKET
-			x === 0x232a || // RIGHT-POINTING ANGLE BRACKET
+		codePoint >= 0x1100 && (
+			codePoint <= 0x115F || // Hangul Jamo
+			codePoint === 0x2329 || // LEFT-POINTING ANGLE BRACKET
+			codePoint === 0x232A || // RIGHT-POINTING ANGLE BRACKET
 			// CJK Radicals Supplement .. Enclosed CJK Letters and Months
-			(0x2e80 <= x && x <= 0x3247 && x !== 0x303f) ||
+			(0x2E80 <= codePoint && codePoint <= 0x3247 && codePoint !== 0x303F) ||
 			// Enclosed CJK Letters and Months .. CJK Unified Ideographs Extension A
-			(0x3250 <= x && x <= 0x4dbf) ||
+			(0x3250 <= codePoint && codePoint <= 0x4DBF) ||
 			// CJK Unified Ideographs .. Yi Radicals
-			(0x4e00 <= x && x <= 0xa4c6) ||
+			(0x4E00 <= codePoint && codePoint <= 0xA4C6) ||
 			// Hangul Jamo Extended-A
-			(0xa960 <= x && x <= 0xa97c) ||
+			(0xA960 <= codePoint && codePoint <= 0xA97C) ||
 			// Hangul Syllables
-			(0xac00 <= x && x <= 0xd7a3) ||
+			(0xAC00 <= codePoint && codePoint <= 0xD7A3) ||
 			// CJK Compatibility Ideographs
-			(0xf900 <= x && x <= 0xfaff) ||
+			(0xF900 <= codePoint && codePoint <= 0xFAFF) ||
 			// Vertical Forms
-			(0xfe10 <= x && x <= 0xfe19) ||
+			(0xFE10 <= codePoint && codePoint <= 0xFE19) ||
 			// CJK Compatibility Forms .. Small Form Variants
-			(0xfe30 <= x && x <= 0xfe6b) ||
+			(0xFE30 <= codePoint && codePoint <= 0xFE6B) ||
 			// Halfwidth and Fullwidth Forms
-			(0xff01 <= x && x <= 0xff60) ||
-			(0xffe0 <= x && x <= 0xffe6) ||
+			(0xFF01 <= codePoint && codePoint <= 0xFF60) ||
+			(0xFFE0 <= codePoint && codePoint <= 0xFFE6) ||
 			// Kana Supplement
-			(0x1b000 <= x && x <= 0x1b001) ||
+			(0x1B000 <= codePoint && codePoint <= 0x1B001) ||
 			// Enclosed Ideographic Supplement
-			(0x1f200 <= x && x <= 0x1f251) ||
+			(0x1F200 <= codePoint && codePoint <= 0x1F251) ||
 			// CJK Unified Ideographs Extension B .. Tertiary Ideographic Plane
-			(0x20000 <= x && x <= 0x3fffd)
+			(0x20000 <= codePoint && codePoint <= 0x3FFFD)
 		)
 	) {
 		return true;
@@ -196186,6 +196309,9 @@ module.exports = x => {
 
 	return false;
 };
+
+module.exports = isFullwidthCodePoint;
+module.exports.default = isFullwidthCodePoint;
 
 
 /***/ }),
@@ -197076,18 +197202,6 @@ exports.WriteEntry = __webpack_require__(812)
 exports.Header = __webpack_require__(6439)
 exports.Pax = __webpack_require__(6022)
 exports.types = __webpack_require__(572)
-
-
-/***/ }),
-
-/***/ 9563:
-/***/ (function(module) {
-
-var toString = {}.toString;
-
-module.exports = Array.isArray || function (arr) {
-  return toString.call(arr) == '[object Array]';
-};
 
 
 /***/ }),
@@ -202179,70 +202293,6 @@ function dumpException(ex)
 
 /***/ }),
 
-/***/ 9703:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const utils = __webpack_require__(2444);
-class EntryFilter {
-    constructor(_settings, _micromatchOptions) {
-        this._settings = _settings;
-        this._micromatchOptions = _micromatchOptions;
-        this.index = new Map();
-    }
-    getFilter(positive, negative) {
-        const positiveRe = utils.pattern.convertPatternsToRe(positive, this._micromatchOptions);
-        const negativeRe = utils.pattern.convertPatternsToRe(negative, this._micromatchOptions);
-        return (entry) => this._filter(entry, positiveRe, negativeRe);
-    }
-    _filter(entry, positiveRe, negativeRe) {
-        if (this._settings.unique && this._isDuplicateEntry(entry)) {
-            return false;
-        }
-        if (this._onlyFileFilter(entry) || this._onlyDirectoryFilter(entry)) {
-            return false;
-        }
-        if (this._isSkippedByAbsoluteNegativePatterns(entry.path, negativeRe)) {
-            return false;
-        }
-        const filepath = this._settings.baseNameMatch ? entry.name : entry.path;
-        const isMatched = this._isMatchToPatterns(filepath, positiveRe) && !this._isMatchToPatterns(entry.path, negativeRe);
-        if (this._settings.unique && isMatched) {
-            this._createIndexRecord(entry);
-        }
-        return isMatched;
-    }
-    _isDuplicateEntry(entry) {
-        return this.index.has(entry.path);
-    }
-    _createIndexRecord(entry) {
-        this.index.set(entry.path, undefined);
-    }
-    _onlyFileFilter(entry) {
-        return this._settings.onlyFiles && !entry.dirent.isFile();
-    }
-    _onlyDirectoryFilter(entry) {
-        return this._settings.onlyDirectories && !entry.dirent.isDirectory();
-    }
-    _isSkippedByAbsoluteNegativePatterns(entryPath, patternsRe) {
-        if (!this._settings.absolute) {
-            return false;
-        }
-        const fullpath = utils.path.makeAbsolute(this._settings.cwd, entryPath);
-        return utils.pattern.matchAny(fullpath, patternsRe);
-    }
-    _isMatchToPatterns(entryPath, patternsRe) {
-        const filepath = utils.path.removeLeadingDotSegment(entryPath);
-        return utils.pattern.matchAny(filepath, patternsRe);
-    }
-}
-exports.default = EntryFilter;
-
-
-/***/ }),
-
 /***/ 9733:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -203028,6 +203078,37 @@ const diff = (version1, version2) => {
   }
 }
 module.exports = diff
+
+
+/***/ }),
+
+/***/ 9838:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+const sync_1 = __webpack_require__(9119);
+const provider_1 = __webpack_require__(5915);
+class ProviderSync extends provider_1.default {
+    constructor() {
+        super(...arguments);
+        this._reader = new sync_1.default(this._settings);
+    }
+    read(task) {
+        const root = this._getRootDirectory(task);
+        const options = this._getReaderOptions(task);
+        const entries = this.api(root, task, options);
+        return entries.map(options.transform);
+    }
+    api(root, task, options) {
+        if (task.dynamic) {
+            return this._reader.dynamic(root, options);
+        }
+        return this._reader.static(task.patterns, options);
+    }
+}
+exports.default = ProviderSync;
 
 
 /***/ }),
@@ -204485,47 +204566,6 @@ exports.decode = function (charCode) {
   // Invalid base64 digit.
   return -1;
 };
-
-
-/***/ }),
-
-/***/ 9949:
-/***/ (function(__unusedmodule, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-const path = __webpack_require__(5622);
-const fsStat = __webpack_require__(3231);
-const utils = __webpack_require__(2444);
-class Reader {
-    constructor(_settings) {
-        this._settings = _settings;
-        this._fsStatSettings = new fsStat.Settings({
-            followSymbolicLink: this._settings.followSymbolicLinks,
-            fs: this._settings.fs,
-            throwErrorOnBrokenSymbolicLink: this._settings.followSymbolicLinks
-        });
-    }
-    _getFullEntryPath(filepath) {
-        return path.resolve(this._settings.cwd, filepath);
-    }
-    _makeEntry(stats, pattern) {
-        const entry = {
-            name: pattern,
-            path: pattern,
-            dirent: utils.fs.createDirentFromStats(pattern, stats)
-        };
-        if (this._settings.stats) {
-            entry.stats = stats;
-        }
-        return entry;
-    }
-    _isFatalError(error) {
-        return !utils.errno.isEnoentCodeError(error) && !this._settings.suppressErrors;
-    }
-}
-exports.default = Reader;
 
 
 /***/ }),
