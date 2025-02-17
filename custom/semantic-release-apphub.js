@@ -92,6 +92,18 @@ exports.publish = async (config, context) => {
     const pkg = fs.readJsonSync(packagePath)
 
     const configPath = path.join(basePath, 'd2.config.js')
+    if (!fs.existsSync(configPath)) {
+        logger.warn(
+            `Failed to locate d2.config.js file, does it exist in ${path.resolve(
+                pkgRoot
+            )}?`
+        )
+        logger.warn(
+            'd2.config.js is necessary to automatically publish to the App Hub. Skipping',
+            pkgRoot
+        )
+        return
+    }
     const d2Config = require(configPath)
 
     if (d2Config.type === 'lib') {
