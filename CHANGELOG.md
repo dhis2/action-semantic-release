@@ -1,3 +1,10 @@
+## [1.5.10](https://github.com/dhis2/action-semantic-release/compare/v1.5.9...v1.5.10) (2025-02-17)
+
+
+### Bug Fixes
+
+* skip publish too if missing d2 config ([df4d1df](https://github.com/dhis2/action-semantic-release/commit/df4d1dffc485007940ab39c4a9af59e4bfb08b59))
+
 ## [1.5.9](https://github.com/dhis2/action-semantic-release/compare/v1.5.8...v1.5.9) (2025-02-17)
 
 
