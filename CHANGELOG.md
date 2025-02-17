@@ -1,3 +1,10 @@
+## [1.5.9](https://github.com/dhis2/action-semantic-release/compare/v1.5.8...v1.5.9) (2025-02-17)
+
+
+### Bug Fixes
+
+* build latest changes to dist ([f67d742](https://github.com/dhis2/action-semantic-release/commit/f67d742b7c59f08f3b1f91c4265444cca8aa4afe))
+
 ## [1.5.8](https://github.com/dhis2/action-semantic-release/compare/v1.5.7...v1.5.8) (2025-02-06)
 
 
