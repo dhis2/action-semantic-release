@@ -16,7 +16,7 @@ exports.gitPlugin = ({ packages }) => [
             packages
                 .flatMap(pkgJsonPath => [
                     path.join(path.dirname(pkgJsonPath), 'API.md'),
-                    path.join(path.dirname(pkgJsonPath), 'yarn.lock'),
+                    path.join(path.dirname(pkgJsonPath), 'pnpm-lock.yaml'),
                 ])
                 .filter(fs.existsSync),
         ],

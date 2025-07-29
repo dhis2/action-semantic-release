@@ -8,7 +8,7 @@ const { deferReleasePlugin } = require('./defer-release.js')
 const { gitPlugin } = require('./git.js')
 const { apphubPlugin } = require('./publish-apphub.js')
 const { githubPlugin } = require('./publish-github.js')
-const { npmPlugin } = require('./publish-npm.js')
+const { pnpmPlugin } = require('./publish-pnpm.js')
 const { releaseNotesPlugin } = require('./release-notes.js')
 const { updateDepsPlugin } = require('./update-deps.js')
 
@@ -39,7 +39,7 @@ exports.plugins = async ({ changelog, apphub, npm, github, cwd }) => {
         releaseNotesPlugin(),
         updateDepsPlugin({ packages }),
         changelogPlugin({ changelogFile: changelog }),
-        ...npmPlugin({ npmPublish: npm.publish, packages }),
+        ...pnpmPlugin({ npmPublish: npm.publish, packages }),
         ...(apphub.publish
             ? apphubPlugin({
                   channel: apphub.channel,
